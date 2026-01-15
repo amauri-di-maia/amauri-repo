@@ -3,7 +3,7 @@ name: Brickovery - Rebuild DB
 on:
   workflow_dispatch:
   schedule:
-    - cron: "15 3 * * *"  # UTC; ajusta quando quiseres
+    - cron: "15 3 * * *"
 
 permissions:
   contents: read
@@ -12,6 +12,7 @@ concurrency:
   group: brickovery-rebuild
   cancel-in-progress: false
 
+jobs:
   make_colors:
     runs-on: ubuntu-latest
     steps:
@@ -116,3 +117,4 @@ concurrency:
             data/part_color_matrix.csv
             data/build_report.md
             data/matrix_issues.csv
+          if-no-files-found: warn
