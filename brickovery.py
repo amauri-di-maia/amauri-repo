@@ -16,6 +16,32 @@ import requests
 from requests_oauthlib import OAuth1
 
 
+# =========================
+# API SECRETS (via environment variables)
+#
+# Em GitHub Actions, injeta as secrets assim (exemplo):
+#
+#   REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
+#   BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
+#   BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
+#   BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
+#   BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
+#   BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
+#
+# Este script apenas le essas variaveis do ambiente.
+# =========================
+
+def _env(name: str) -> str:
+    return (os.getenv(name) or "").strip()
+
+REBRICKABLE_API_KEY = _env("REBRICKABLE_API_KEY")
+BRICKOWL_API_KEY = _env("BRICKOWL_API_KEY")
+BRICKLINK_CONSUMER_KEY = _env("BRICKLINK_CONSUMER_KEY")
+BRICKLINK_CONSUMER_SECRET = _env("BRICKLINK_CONSUMER_SECRET")
+BRICKLINK_TOKEN = _env("BRICKLINK_TOKEN")
+BRICKLINK_TOKEN_SECRET = _env("BRICKLINK_TOKEN_SECRET")
+
+
 def load_json(path: Path) -> dict:
     if not path.exists():
         return {}
@@ -165,10 +191,10 @@ def build_bl_reverse_maps(color_map: Dict[int, Dict[str, object]]) -> Tuple[Dict
 
 
 def bricklink_oauth_from_env() -> Optional[OAuth1]:
-    ck = os.getenv("BRICKLINK_CONSUMER_KEY")
-    cs = os.getenv("BRICKLINK_CONSUMER_SECRET")
-    tk = os.getenv("BRICKLINK_TOKEN")
-    ts = os.getenv("BRICKLINK_TOKEN_SECRET")
+    ck = BRICKLINK_CONSUMER_KEY
+    cs = BRICKLINK_CONSUMER_SECRET
+    tk = BRICKLINK_TOKEN
+    ts = BRICKLINK_TOKEN_SECRET
     if not (ck and cs and tk and ts):
         return None
     return OAuth1(ck, cs, tk, ts)
@@ -196,7 +222,7 @@ def bricklink_list_item_colors(bl_part_id: str, oauth: OAuth1, timeout_s: int = 
 
 
 def rebrickable_key_from_env() -> Optional[str]:
-    key = os.getenv("REBRICKABLE_API_KEY")
+    key = REBRICKABLE_API_KEY
     return key.strip() if key else None
 
 
@@ -279,7 +305,7 @@ class BrickOwlAPI:
 
 
 def brickowl_key_from_env() -> Optional[str]:
-    key = os.getenv("BRICKOWL_API_KEY")
+    key = BRICKOWL_API_KEY
     return key.strip() if key else None
 
 
