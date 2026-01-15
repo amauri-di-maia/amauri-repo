@@ -45,6 +45,32 @@ import requests
 from requests_oauthlib import OAuth1
 
 
+# =========================
+# API SECRETS (via environment variables)
+#
+# Em GitHub Actions, injeta as secrets assim (exemplo):
+#
+#   REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
+#   BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
+#   BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
+#   BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
+#   BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
+#   BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
+#
+# Este script apenas le essas variaveis do ambiente.
+# =========================
+
+def _env(name: str) -> str:
+    return (os.getenv(name) or "").strip()
+
+REBRICKABLE_API_KEY = _env("REBRICKABLE_API_KEY")
+BRICKOWL_API_KEY = _env("BRICKOWL_API_KEY")
+BRICKLINK_CONSUMER_KEY = _env("BRICKLINK_CONSUMER_KEY")
+BRICKLINK_CONSUMER_SECRET = _env("BRICKLINK_CONSUMER_SECRET")
+BRICKLINK_TOKEN = _env("BRICKLINK_TOKEN")
+BRICKLINK_TOKEN_SECRET = _env("BRICKLINK_TOKEN_SECRET")
+
+
 # -----------------------------
 # Helpers
 # -----------------------------
@@ -364,24 +390,24 @@ def backoff_sleep(attempt: int) -> None:
 
 
 def get_bl_api() -> Optional[BrickLinkAPI]:
-    ck = os.environ.get("BRICKLINK_CONSUMER_KEY", "").strip()
-    cs = os.environ.get("BRICKLINK_CONSUMER_SECRET", "").strip()
-    tk = os.environ.get("BRICKLINK_TOKEN", "").strip()
-    ts = os.environ.get("BRICKLINK_TOKEN_SECRET", "").strip()
+    ck = BRICKLINK_CONSUMER_KEY
+    cs = BRICKLINK_CONSUMER_SECRET
+    tk = BRICKLINK_TOKEN
+    ts = BRICKLINK_TOKEN_SECRET
     if ck and cs and tk and ts:
         return BrickLinkAPI(ck, cs, tk, ts)
     return None
 
 
 def get_rb_api() -> Optional[RebrickableAPI]:
-    key = os.environ.get("REBRICKABLE_API_KEY", "").strip()
+    key = REBRICKABLE_API_KEY
     if key:
         return RebrickableAPI(key)
     return None
 
 
 def brickowl_key_from_env() -> Optional[str]:
-    key = os.environ.get("BRICKOWL_API_KEY", "").strip()
+    key = BRICKOWL_API_KEY
     return key if key else None
 
 
