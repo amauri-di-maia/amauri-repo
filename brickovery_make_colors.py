@@ -1,647 +1,606 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-brickovery_make_colors.py
-
-Builds a future-proof LEGO color mapping table by consolidating:
-- BrickLink color IDs & names (from inputs/bricklink/colors.xml)
-- Rebrickable colors download (colors.csv or colors.csv.gz)
-- Your existing seed mapping (colors_seed.csv)
-
-Primary output:
-  inputs/color_map.csv
-  Columns (stable contract):
-    name, rb_color_id, bl_color_id, bo_color_id, ldraw_color_id, bl_color_name, bo_color_name
-
-Additional outputs:
-  inputs/color_map_audit.csv
-    Adds: rb_name, rb_rgb, rb_is_trans
-  data/color_map_issues.csv
-    All unresolved/ambiguous items with suggestions
-
-Important rule (MANDATORY):
-- bo_color_name is mandatory whenever bo_color_id exists.
-  If bo_color_id is present but bo_color_name cannot be resolved, an issue is emitted (BO_NAME_MISSING).
-  With --strict, the script exits with code 2 when ANY issue exists.
-
-Notes for GitHub Actions:
-- Prefer storing API keys as repository secrets and injecting them as env vars.
-- This script supports both a local constant and env var (env overrides the constant).
-
-"""
-
 from __future__ import annotations
 
 import argparse
 import csv
-import gzip
-import io
-import json
-import re
 import os
+import re
 import sys
-import urllib.parse
-import urllib.request
+import time
 import xml.etree.ElementTree as ET
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
-
-# =============================
-# CONFIG: API KEYS / ENDPOINTS
-# =============================
-# You can put your keys here for local runs.
-# In GitHub Actions, prefer setting secrets as env vars (recommended).
-#
-# Supported env vars:
-#   BRICKOWL_API_KEY
-#
-# If both are present, the env var wins.
-BRICKOWL_API_KEY = "70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046"  # <-- optionally set here
-
-# Reserved / future use (not used by this script yet):
-REBRICKABLE_API_KEY = "726574f0de061233d6ba4b1c87557302"  # Rebrickable v3 API key (if you later switch to API instead of downloads)
-BRICKLINK_CONSUMER_KEY = ""  # BrickLink OAuth (if you later fetch BL data via API)
-BRICKLINK_CONSUMER_SECRET = ""
-BRICKLINK_TOKEN = ""
-BRICKLINK_TOKEN_SECRET = ""
-
-BRICKOWL_API_BASE = "https://api.brickowl.com"
-BRICKOWL_COLOR_LIST_PATH = "/v1/catalog/color_list"
+import requests
+from requests_oauthlib import OAuth1
 
 
-# =============================
-# Helpers: IO
-# =============================
-def open_text_maybe_gz(path: Path, encoding: str = "utf-8") -> io.TextIOBase:
-    if path.suffix.lower() == ".gz":
-        return io.TextIOWrapper(gzip.open(path, "rb"), encoding=encoding, newline="")
-    return open(path, "r", encoding=encoding, newline="")
+# -----------------------------
+# Helpers
+# -----------------------------
+def norm(s: str) -> str:
+    s = (s or "").strip().lower()
+    s = s.replace("grey", "gray")
+    s = s.replace("&", " and ")
+    s = re.sub(r"[-–—_/]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    s = re.sub(r"[^a-z0-9 ]+", "", s)
+    return s
 
 
-def ensure_parent_dir(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-
-def write_csv(path: Path, rows: List[dict], fieldnames: List[str]) -> None:
-    ensure_parent_dir(path)
-    with open(path, "w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
-        w.writeheader()
-        for r in rows:
-            w.writerow({k: r.get(k, "") for k in fieldnames})
-
-
-# =============================
-# Parsing: BrickLink colors.xml
-# =============================
-def parse_bricklink_colors_xml(path: Path) -> Dict[int, str]:
-    """
-    Parses a BrickLink colors.xml in a tolerant way.
-
-    We try to locate nodes that look like "COLOR" entries with an integer id and a name.
-    Supported child tags (case-insensitive):
-      id:   id, colorid, color_id, bricklink_color_id, color_id
-      name: name, colorname, color_name
-    """
-    tree = ET.parse(path)
-    root = tree.getroot()
-
-    # Normalized map
-    out: Dict[int, str] = {}
-
-    id_keys = {"id", "colorid", "color_id", "bricklink_color_id", "bricklinkcolorid", "bricklinkid", "bl_color_id", "blcolorid"}
-    name_keys = {"name", "colorname", "color_name", "color"}
-
-    for node in root.iter():
-        # Consider only nodes with children (potential structured entries)
-        children = list(node)
-        if not children:
-            continue
-
-        d: Dict[str, str] = {}
-        for c in children:
-            tag = (c.tag or "").strip().lower()
-            txt = (c.text or "").strip()
-            if not tag or not txt:
-                continue
-            d[tag] = txt
-
-        # Find id/name within this node
-        cid_txt = None
-        for k in id_keys:
-            if k in d:
-                cid_txt = d[k]
-                break
-        if cid_txt is None:
-            # fallback: any tag that contains 'color' and ends with 'id'
-            for k, v in d.items():
-                if "color" in k and k.endswith("id"):
-                    cid_txt = v
-                    break
-
-        name_txt = None
-        for k in name_keys:
-            if k in d:
-                name_txt = d[k]
-                break
-        if name_txt is None:
-            # fallback: any tag that contains 'name' and 'color'
-            for k, v in d.items():
-                if "name" in k and "color" in k:
-                    name_txt = v
-                    break
-
-        if not cid_txt or not name_txt:
-            continue
-
-        try:
-            cid = int(str(cid_txt).strip())
-        except Exception:
-            continue
-
-        name_txt = str(name_txt).strip()
-        if name_txt:
-            out[cid] = name_txt
-
-    return out
-
-
-# =============================
-# Parsing: Rebrickable colors.csv(.gz)
-# =============================
-@dataclass(frozen=True)
-class RBColor:
-    rb_color_id: int
-    name: str
-    ldraw_color_id: Optional[int]
-    rgb: Optional[str]
-    is_trans: Optional[bool]
-
-
-def parse_rebrickable_colors_csv(path: Path) -> List[RBColor]:
-    with open_text_maybe_gz(path) as f:
-        r = csv.DictReader(f)
-        # normalize header -> lower
-        field_map = {k.lower(): k for k in (r.fieldnames or [])}
-
-        def get(row: dict, key: str) -> str:
-            k = field_map.get(key.lower())
-            return (row.get(k, "") if k else "") or ""
-
-        out: List[RBColor] = []
-        for row in r:
-            rb_id_raw = get(row, "id")
-            if not str(rb_id_raw).strip():
-                continue
-            try:
-                rb_id = int(str(rb_id_raw).strip())
-            except Exception:
-                continue
-
-            name = get(row, "name").strip()
-
-            # ldraw id can appear as ldraw_id in some exports
-            ldraw_raw = get(row, "ldraw_id").strip()
-            ldraw_val: Optional[int] = None
-            if ldraw_raw:
-                try:
-                    ldraw_val = int(ldraw_raw)
-                except Exception:
-                    ldraw_val = None
-
-            rgb = get(row, "rgb").strip() or None
-
-            is_trans_raw = get(row, "is_trans").strip().lower()
-            is_trans: Optional[bool] = None
-            if is_trans_raw in {"0", "false", "f", "no", "n"}:
-                is_trans = False
-            elif is_trans_raw in {"1", "true", "t", "yes", "y"}:
-                is_trans = True
-
-            out.append(RBColor(rb_id, name, ldraw_val, rgb, is_trans))
-
-    # stable order
-    out.sort(key=lambda x: x.rb_color_id)
-    return out
-
-
-# =============================
-# Parsing: Seed file
-# =============================
-@dataclass
-class SeedRow:
-    rb_color_id: int
-    name: Optional[str] = None
-    bl_color_id: Optional[int] = None
-    bo_color_id: Optional[int] = None
-    ldraw_color_id: Optional[int] = None
-    bo_color_name: Optional[str] = None
-
-
-def _parse_int_opt(v: str) -> Optional[int]:
-    s = str(v or "").strip()
-    if not s:
+def parse_int_any(v: object) -> Optional[int]:
+    if v is None:
+        return None
+    s = str(v).strip()
+    if s == "" or s.lower() == "nan":
         return None
     try:
-        return int(s)
+        return int(float(s))
     except Exception:
         return None
 
 
-def parse_seed_csv(path: Path) -> Dict[int, SeedRow]:
-    with open_text_maybe_gz(path) as f:
+def read_csv_dicts(path: Path) -> Iterable[Dict[str, str]]:
+    with path.open("r", encoding="utf-8-sig", newline="") as f:
         r = csv.DictReader(f)
-        if not r.fieldnames:
-            return {}
-
-        # normalize columns
-        cols = {c.lower().strip(): c for c in r.fieldnames}
-
-        def pick(row: dict, *keys: str) -> str:
-            for k in keys:
-                kk = cols.get(k.lower())
-                if kk and (row.get(kk) is not None):
-                    return str(row.get(kk) or "")
-            return ""
-
-        out: Dict[int, SeedRow] = {}
         for row in r:
-            rb_raw = pick(row, "rb_color_id", "rb_id", "rebrickable_color_id", "rbcolorid", "rb")
-            rb_id = _parse_int_opt(rb_raw)
-            if rb_id is None:
-                continue
-
-            name = pick(row, "name", "color_name", "color").strip() or None
-            bl_id = _parse_int_opt(pick(row, "bl_color_id", "bricklink_color_id", "blcolorid"))
-            bo_id = _parse_int_opt(pick(row, "bo_color_id", "brickowl_color_id", "bocolorid", "bo"))
-            ldraw_id = _parse_int_opt(pick(row, "ldraw_color_id", "ldraw_id", "ldraw"))
-            bo_name = pick(row, "bo_color_name", "brickowl_color_name", "bo_name").strip() or None
-
-            out[rb_id] = SeedRow(
-                rb_color_id=rb_id,
-                name=name,
-                bl_color_id=bl_id,
-                bo_color_id=bo_id,
-                ldraw_color_id=ldraw_id,
-                bo_color_name=bo_name,
-            )
-        return out
+            yield {k: (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
 
 
-# =============================
-# BrickOwl color list (file or API)
-# =============================
-def _parse_bo_color_list_payload(payload) -> Dict[int, str]:
-    """
-    Accepts multiple known shapes:
-      - dict: { "0": "Not Applicable", "10": "Black", ... }
-      - dict: { "0": {"name":"Not Applicable", ...}, ... }
-      - list: [ {"id":10,"name":"Black"}, {"color_id":10,"name":"Black"}, ... ]
-    Returns: {bo_color_id:int -> bo_color_name:str}
-    """
-    out: Dict[int, str] = {}
+def write_csv(path: Path, fieldnames: List[str], rows: List[Dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: ("" if r.get(k) is None else r.get(k)) for k in fieldnames})
 
-    if isinstance(payload, dict):
-        for k, v in payload.items():
-            ks = str(k).strip()
-            if not ks.isdigit():
-                continue
-            cid = int(ks)
-            if isinstance(v, str):
-                nm = v.strip()
-            elif isinstance(v, dict):
-                nm = str(v.get("name") or v.get("lego_name") or v.get("color_name") or "").strip()
-            else:
-                nm = ""
-            if nm:
-                out[cid] = nm
-        return out
 
-    if isinstance(payload, list):
-        for item in payload:
-            if not isinstance(item, dict):
-                continue
-            cid_raw = item.get("color_id", item.get("id", item.get("bo_color_id")))
-            try:
-                cid = int(str(cid_raw).strip())
-            except Exception:
-                continue
-            nm = str(item.get("name") or item.get("lego_name") or item.get("color_name") or "").strip()
-            if nm:
-                out[cid] = nm
-        return out
+# -----------------------------
+# Data models
+# -----------------------------
+@dataclass
+class RBColor:
+    rb_color_id: int
+    name: str
+    rgb: str
+    is_trans: Optional[int]
+    ldraw_color_id: Optional[int]
 
+
+@dataclass
+class SeedColor:
+    rb_color_id: int
+    name: str
+    bl_color_id: Optional[int]
+    bo_color_id: Optional[int]
+    ldraw_color_id: Optional[int]
+
+
+# -----------------------------
+# Loaders
+# -----------------------------
+def load_rb_colors(rb_colors_csv: Path) -> Dict[int, RBColor]:
+    out: Dict[int, RBColor] = {}
+    for row in read_csv_dicts(rb_colors_csv):
+        rb_id = parse_int_any(row.get("id") or row.get("rb_color_id") or row.get("color_id"))
+        if rb_id is None:
+            continue
+        name = (row.get("name") or row.get("color_name") or f"RB_{rb_id}").strip()
+        rgb = (row.get("rgb") or row.get("rb_rgb") or "").strip()
+        is_trans = parse_int_any(row.get("is_trans") or row.get("transparent") or row.get("rb_is_trans"))
+        ldraw = parse_int_any(row.get("ldraw_id") or row.get("ldraw_color_id"))
+        out[rb_id] = RBColor(rb_color_id=rb_id, name=name, rgb=rgb, is_trans=is_trans, ldraw_color_id=ldraw)
     return out
 
 
-def fetch_brickowl_color_list(api_key: str, timeout_s: int = 25) -> Dict[int, str]:
-    """
-    Calls BrickOwl Catalog API:
-      GET https://api.brickowl.com/v1/catalog/color_list?key=...
-    This endpoint requires Catalog API access enabled for the key.
-    """
-    base = BRICKOWL_API_BASE.rstrip("/") + BRICKOWL_COLOR_LIST_PATH
-    url = base + "?" + urllib.parse.urlencode({"key": api_key})
-    req = urllib.request.Request(url, headers={"User-Agent": "Brickovery/1.0 (color-map)"})
-    with urllib.request.urlopen(req, timeout=timeout_s) as resp:
-        raw = resp.read()
-    payload = json.loads(raw.decode("utf-8", errors="replace"))
-    return _parse_bo_color_list_payload(payload)
-
-
-def read_brickowl_colors_file(path: Path) -> Dict[int, str]:
-    """
-    Reads BrickOwl color list from:
-      - JSON (optionally .gz)
-      - CSV  (optionally .gz)
-
-    For CSV, accepts flexible columns (case-insensitive):
-      - bo_color_id | color_id | id  (required)
-      - bo_color_name | name | color_name | lego_name (required)
-    """
-    suffixes = "".join(path.suffixes).lower()
-    if suffixes.endswith(".json") or suffixes.endswith(".json.gz"):
-        with open_text_maybe_gz(path) as f:
-            payload = json.load(f)
-        return _parse_bo_color_list_payload(payload)
-
-    # CSV
-    with open_text_maybe_gz(path) as f:
-        r = csv.DictReader(f)
-        if not r.fieldnames:
-            return {}
-
-        cols = {c.lower().strip(): c for c in r.fieldnames}
-
-        def pick(row: dict, *keys: str) -> str:
-            for k in keys:
-                kk = cols.get(k.lower())
-                if kk and (row.get(kk) is not None):
-                    return str(row.get(kk) or "")
-            return ""
-
-        out: Dict[int, str] = {}
-        for row in r:
-            cid = _parse_int_opt(pick(row, "bo_color_id", "color_id", "id"))
-            nm = pick(row, "bo_color_name", "name", "color_name", "lego_name").strip()
-            if cid is None or not nm:
-                continue
-            out[cid] = nm
-        return out
-
-
-# =============================
-# Name normalization & matching
-# =============================
-_norm_re = re.compile(r"[^a-z0-9]+")
-
-def norm_name(s: str) -> str:
-    s = (s or "").strip().lower()
-    # collapse some common noise
-    s = s.replace("&", "and")
-    s = _norm_re.sub(" ", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
-
-
-def match_by_name(name: str, id_to_name: Dict[int, str]) -> List[int]:
-    """
-    Returns candidate IDs whose normalized name matches the provided name.
-    """
-    nn = norm_name(name)
-    if not nn:
-        return []
-    candidates: List[int] = []
-    for cid, cname in id_to_name.items():
-        if norm_name(cname) == nn:
-            candidates.append(cid)
-    return sorted(candidates)
-
-
-# =============================
-# Build mapping & issues
-# =============================
-def build_color_map(
-    rb_colors: List[RBColor],
-    bl_colors: Dict[int, str],
-    seed: Dict[int, SeedRow],
-    bo_colors: Dict[int, str],
-) -> Tuple[List[dict], List[dict]]:
+def load_bl_colors_xml(bl_colors_xml: Path) -> Tuple[Dict[str, int], Dict[int, str], Dict[int, str]]:
     """
     Returns:
-      rows_out (for color_map.csv)
-      issues   (for issues.csv)
+      name_norm -> bl_color_id
+      bl_color_id -> bl_color_name
+      bl_color_id -> bl_rgb
     """
-    rows: List[dict] = []
-    issues: List[dict] = []
-
-    for rb in rb_colors:
-        s = seed.get(rb.rb_color_id)
-
-        name = (s.name if (s and s.name) else rb.name).strip()
-        bl_color_id = s.bl_color_id if s else None
-        bo_color_id = s.bo_color_id if s else None
-        ldraw_color_id = s.ldraw_color_id if (s and s.ldraw_color_id is not None) else rb.ldraw_color_id
-
-        # If no BL id from seed, try name match
-        if bl_color_id is None and name:
-            cands = match_by_name(name, bl_colors)
-            if len(cands) == 1:
-                bl_color_id = cands[0]
-            elif len(cands) > 1:
-                issues.append({
-                    "rb_color_id": rb.rb_color_id,
-                    "name": name,
-                    "issue": "AMBIGUOUS_BL_NAME",
-                    "details": f"Multiple BrickLink color IDs match name '{name}'",
-                    "suggestions": ",".join(map(str, cands)),
-                })
-
-        # If no BO id from seed, try name match (only if we have a BO color list)
-        if bo_color_id is None and bo_colors and name:
-            cands = match_by_name(name, bo_colors)
-            if len(cands) == 1:
-                bo_color_id = cands[0]
-            elif len(cands) > 1:
-                issues.append({
-                    "rb_color_id": rb.rb_color_id,
-                    "name": name,
-                    "issue": "AMBIGUOUS_BO_NAME",
-                    "details": f"Multiple BrickOwl color IDs match name '{name}'",
-                    "suggestions": ",".join(map(str, cands)),
-                })
-
-        # Derive names
-        bl_color_name = bl_colors.get(bl_color_id, "") if bl_color_id is not None else ""
-
-        bo_color_name = ""
-        if s and s.bo_color_name:
-            bo_color_name = s.bo_color_name.strip()
-        if not bo_color_name and bo_color_id is not None:
-            bo_color_name = (bo_colors.get(bo_color_id) or "").strip()
-
-        # Issues: missing IDs
-        if bl_color_id is None:
-            issues.append({
-                "rb_color_id": rb.rb_color_id,
-                "name": name,
-                "issue": "BL_ID_MISSING",
-                "details": "No BrickLink color ID resolved (seed missing and no unique name match)",
-                "suggestions": "",
-            })
-
-        if bo_color_id is None:
-            issues.append({
-                "rb_color_id": rb.rb_color_id,
-                "name": name,
-                "issue": "BO_ID_MISSING",
-                "details": "No BrickOwl color ID resolved (seed missing and no unique name match)",
-                "suggestions": "",
-            })
-
-        # Mandatory: bo_color_name if bo_color_id exists
-        if bo_color_id is not None and not bo_color_name:
-            issues.append({
-                "rb_color_id": rb.rb_color_id,
-                "name": name,
-                "issue": "BO_NAME_MISSING",
-                "details": "bo_color_id is present but bo_color_name could not be resolved (seed missing and/or BO color list unavailable)",
-                "suggestions": "Provide --bo-colors (file) or BRICKOWL_API_KEY / --bo-api-key to fetch color_list; or add bo_color_name in seed",
-            })
-
-        # Optional: validate bo_color_id exists in bo_colors list (when list present)
-        if bo_color_id is not None and bo_colors and bo_color_id not in bo_colors:
-            issues.append({
-                "rb_color_id": rb.rb_color_id,
-                "name": name,
-                "issue": "INVALID_BO_ID",
-                "details": f"bo_color_id={bo_color_id} not found in BrickOwl color list source",
-                "suggestions": "",
-            })
-
-        row = {
-            "name": name,
-            "rb_color_id": rb.rb_color_id,
-            "bl_color_id": bl_color_id if bl_color_id is not None else "",
-            "bo_color_id": bo_color_id if bo_color_id is not None else "",
-            "ldraw_color_id": ldraw_color_id if ldraw_color_id is not None else "",
-            "bl_color_name": bl_color_name,
-            "bo_color_name": bo_color_name,
-        }
-        rows.append(row)
-
-    return rows, issues
+    root = ET.parse(str(bl_colors_xml)).getroot()
+    items = root.findall("ITEM")
+    if not items:
+        raise RuntimeError(f"BrickLink colors.xml has 0 ITEM nodes: {bl_colors_xml}")
+    name_to_id: Dict[str, int] = {}
+    id_to_name: Dict[int, str] = {}
+    id_to_rgb: Dict[int, str] = {}
+    for it in items:
+        cid = parse_int_any(it.findtext("COLOR"))
+        nm = (it.findtext("COLORNAME") or "").strip()
+        rgb = (it.findtext("COLORRGB") or "").strip()
+        if cid is None or not nm:
+            continue
+        name_to_id[norm(nm)] = cid
+        id_to_name[cid] = nm
+        id_to_rgb[cid] = rgb
+    return name_to_id, id_to_name, id_to_rgb
 
 
-def build_audit_rows(rows: List[dict], rb_colors: Dict[int, RBColor]) -> List[dict]:
-    out: List[dict] = []
-    for r in rows:
-        rb_id = int(r["rb_color_id"])
-        rb = rb_colors.get(rb_id)
-        audit = dict(r)
-        audit["rb_name"] = rb.name if rb else ""
-        audit["rb_rgb"] = rb.rgb if (rb and rb.rgb) else ""
-        audit["rb_is_trans"] = "" if (not rb or rb.is_trans is None) else ("1" if rb.is_trans else "0")
-        out.append(audit)
+def iter_bl_codes(bl_codes_xml: Path) -> Iterable[Tuple[str, str]]:
+    """
+    Yields (element_id, color_name_or_id_string) from BrickLink codes.xml
+    Supports both CODENAME and CODE as element identifier.
+    """
+    ctx = ET.iterparse(str(bl_codes_xml), events=("end",))
+    for _, elem in ctx:
+        if elem.tag != "ITEM":
+            continue
+        color_val = (elem.findtext("COLOR") or "").strip()
+        element_id = (elem.findtext("CODENAME") or elem.findtext("CODE") or "").strip()
+        if color_val and element_id:
+            yield element_id, color_val
+        elem.clear()
+
+
+def load_rb_elements(rb_elements_csv: Path) -> Dict[str, int]:
+    """
+    element_id -> rb_color_id
+    """
+    out: Dict[str, int] = {}
+    for row in read_csv_dicts(rb_elements_csv):
+        element_id = (row.get("element_id") or row.get("element") or "").strip()
+        color_id = parse_int_any(row.get("color_id") or row.get("colour_id"))
+        if element_id and color_id is not None:
+            out[element_id] = color_id
     return out
 
 
-# =============================
-# CLI
-# =============================
-def resolve_bo_api_key(cli_key: str) -> str:
-    if cli_key and cli_key.strip():
-        return cli_key.strip()
-    env = (os.environ.get("BRICKOWL_API_KEY") or "").strip()
-    if env:
-        return env
-    if BRICKOWL_API_KEY and BRICKOWL_API_KEY.strip():
-        return BRICKOWL_API_KEY.strip()
-    return ""
+def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict[int, str]) -> Tuple[Dict[int, SeedColor], List[Dict[str, object]]]:
+    issues: List[Dict[str, object]] = []
+    seed: Dict[int, SeedColor] = {}
+
+    if not seed_csv.exists():
+        return seed, issues
+
+    seen = set()
+    for line_no, row in enumerate(read_csv_dicts(seed_csv), start=2):
+        name = (row.get("name") or "").strip()
+        rb_id = parse_int_any(row.get("rb_color_id") or row.get("id") or row.get("color_id"))
+        bl_id = parse_int_any(row.get("bl_color_id"))
+        bo_id = parse_int_any(row.get("bo_color_id"))
+        ld_id = parse_int_any(row.get("ldraw_color_id") or row.get("ldraw_id"))
+
+        if rb_id is None:
+            issues.append({
+                "severity": "ERROR",
+                "issue_type": "SEED_RB_COLOR_ID_MISSING",
+                "rb_color_id": "",
+                "name": name,
+                "details": f"Seed line {line_no}: rb_color_id vazio/ inválido.",
+                "suggestions": "Corrigir rb_color_id (ex: Black -> 0).",
+            })
+            continue
+
+        if rb_id in seen:
+            issues.append({
+                "severity": "ERROR",
+                "issue_type": "SEED_RB_COLOR_ID_DUPLICATE",
+                "rb_color_id": rb_id,
+                "name": name,
+                "details": f"Seed line {line_no}: rb_color_id duplicado.",
+                "suggestions": "Remover duplicado.",
+            })
+            continue
+        seen.add(rb_id)
+
+        if rb_id not in rb_colors:
+            issues.append({
+                "severity": "ERROR",
+                "issue_type": "SEED_RB_COLOR_ID_UNKNOWN",
+                "rb_color_id": rb_id,
+                "name": name,
+                "details": f"Seed line {line_no}: rb_color_id não existe em Rebrickable colors.csv.",
+                "suggestions": "Confirmar ficheiro colors.csv do Rebrickable.",
+            })
+
+        if bl_id is not None and bl_id not in bl_id_to_name:
+            issues.append({
+                "severity": "ERROR",
+                "issue_type": "SEED_BL_COLOR_ID_UNKNOWN",
+                "rb_color_id": rb_id,
+                "name": name,
+                "details": f"Seed line {line_no}: bl_color_id={bl_id} não existe no BrickLink colors.xml.",
+                "suggestions": "Corrigir bl_color_id ou atualizar colors.xml.",
+            })
+
+        seed[rb_id] = SeedColor(
+            rb_color_id=rb_id,
+            name=name,
+            bl_color_id=bl_id,
+            bo_color_id=bo_id,
+            ldraw_color_id=ld_id,
+        )
+
+    return seed, issues
 
 
+# -----------------------------
+# API verifiers (low-call strategy)
+# -----------------------------
+class BrickLinkAPI:
+    base = "https://api.bricklink.com/api/store/v1"  # official base URL :contentReference[oaicite:4]{index=4}
+
+    def __init__(self, consumer_key: str, consumer_secret: str, token: str, token_secret: str) -> None:
+        self.auth = OAuth1(consumer_key, consumer_secret, token, token_secret)
+
+    def get_colors(self) -> Dict[int, str]:
+        # Get Color List: /colors  :contentReference[oaicite:5]{index=5}
+        url = f"{self.base}/colors"
+        r = requests.get(url, auth=self.auth, timeout=60)
+        r.raise_for_status()
+        j = r.json()
+        data = j.get("data") or []
+        out = {}
+        for c in data:
+            cid = parse_int_any(c.get("color_id"))
+            nm = (c.get("color_name") or "").strip()
+            if cid is not None and nm:
+                out[cid] = nm
+        return out
+
+
+class RebrickableAPI:
+    base = "https://rebrickable.com/api/v3"
+
+    def __init__(self, api_key: str) -> None:
+        self.api_key = api_key
+
+    def get_colors(self) -> Dict[int, str]:
+        # /lego/colors/ documented usage :contentReference[oaicite:6]{index=6}
+        url = f"{self.base}/lego/colors/"
+        headers = {"Authorization": f"key {self.api_key}"}
+        out: Dict[int, str] = {}
+        page = 1
+        while True:
+            r = requests.get(url, headers=headers, params={"page": page, "page_size": 1000}, timeout=60)
+            r.raise_for_status()
+            j = r.json()
+            for c in (j.get("results") or []):
+                cid = parse_int_any(c.get("id"))
+                nm = (c.get("name") or "").strip()
+                if cid is not None and nm:
+                    out[cid] = nm
+            if not j.get("next"):
+                break
+            page += 1
+        return out
+
+
+class BrickOwlAPI:
+    base = "https://api.brickowl.com/v1"
+
+    def __init__(self, api_key: str) -> None:
+        self.api_key = api_key
+
+    def color_list(self) -> Dict[int, str]:
+        # /catalog/color_list is documented in BrickOwl API docs :contentReference[oaicite:7]{index=7}
+        url = f"{self.base}/catalog/color_list"
+        r = requests.get(url, params={"key": self.api_key}, timeout=60)
+        r.raise_for_status()
+        j = r.json()
+        # Commonly: {"data": { "<id>": {...}, ... }} OR list-like. We support both.
+        out: Dict[int, str] = {}
+        data = j.get("data")
+        if isinstance(data, dict):
+            for k, v in data.items():
+                cid = parse_int_any(k)
+                nm = (v.get("name") or v.get("color_name") or "").strip() if isinstance(v, dict) else ""
+                if cid is not None:
+                    out[cid] = nm or ""
+        elif isinstance(data, list):
+            for v in data:
+                cid = parse_int_any(v.get("color_id") or v.get("id"))
+                nm = (v.get("name") or v.get("color_name") or "").strip()
+                if cid is not None:
+                    out[cid] = nm
+        return out
+
+
+# -----------------------------
+# Main build
+# -----------------------------
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--bl-colors-xml", required=True, help="BrickLink colors.xml (e.g., inputs/bricklink/colors.xml)")
-    ap.add_argument("--rb-colors", required=True, help="Rebrickable downloads colors.csv or colors.csv.gz")
-    ap.add_argument("--seed", required=True, help="Seed mapping CSV (your current map), renamed to avoid collision (e.g., inputs/colors_seed.csv)")
-    ap.add_argument("--bo-colors", default="", help="Optional BrickOwl color list file (.json/.csv, optionally .gz) to populate bo_color_name and validate bo_color_id")
-    ap.add_argument("--bo-api-key", default="", help="Optional BrickOwl API key (overrides env/constant) used to call /v1/catalog/color_list")
-    ap.add_argument("--out", default="inputs/color_map.csv", help="Output mapping CSV")
-    ap.add_argument("--audit", default="inputs/color_map_audit.csv", help="Output audit CSV")
-    ap.add_argument("--issues", default="data/color_map_issues.csv", help="Issues CSV")
-    ap.add_argument("--strict", action="store_true", help="Fail (exit 2) if any issues are found")
+    ap.add_argument("--bl-colors-xml", required=True)
+    ap.add_argument("--bl-codes-xml", required=True)
+    ap.add_argument("--rb-elements", required=True)
+    ap.add_argument("--rb-colors", required=True)
+    ap.add_argument("--seed", required=True)
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--issues", required=True)
+    ap.add_argument("--strict", action="store_true")
+    ap.add_argument("--strict-all", action="store_true", help="Falha também com WARN (modo 'perfeição total').")
+    ap.add_argument("--verify-apis", choices=["none", "colors"], default="colors",
+                    help="Verifica coerência de listas de cores via APIs (poucas chamadas).")
     args = ap.parse_args()
 
-    bl_xml = Path(args.bl_colors_xml)
-    rb_csv = Path(args.rb_colors)
-    seed_csv = Path(args.seed)
-    bo_colors_path = Path(args.bo_colors) if args.bo_colors else None
+    bl_name_to_id, bl_id_to_name, bl_id_to_rgb = load_bl_colors_xml(Path(args.bl_colors_xml))
+    rb_colors = load_rb_colors(Path(args.rb_colors))
+    rb_elements = load_rb_elements(Path(args.rb_elements))
 
-    for p in (bl_xml, rb_csv, seed_csv):
-        if not p.exists():
-            raise FileNotFoundError(f"Missing: {p}")
+    seed, seed_issues = load_seed(Path(args.seed), rb_colors, bl_id_to_name)
+    issues: List[Dict[str, object]] = list(seed_issues)
 
-    # Load sources
-    bl_colors = parse_bricklink_colors_xml(bl_xml)
-    rb_list = parse_rebrickable_colors_csv(rb_csv)
-    seed = parse_seed_csv(seed_csv)
+    # Build element_id -> bl_color_id from codes.xml
+    element_to_bl: Dict[str, int] = {}
+    unknown_color_names = Counter()
 
-    # Load BrickOwl colors (file then API)
-    bo_colors: Dict[int, str] = {}
-    if bo_colors_path:
-        if not bo_colors_path.exists():
-            raise FileNotFoundError(f"Missing: {bo_colors_path}")
-        bo_colors = read_brickowl_colors_file(bo_colors_path)
+    for element_id, color_val in iter_bl_codes(Path(args.bl_codes_xml)):
+        # color in codes.xml can be name or id; support both
+        bl_id = parse_int_any(color_val)
+        if bl_id is None:
+            key = norm(color_val)
+            bl_id = bl_name_to_id.get(key)
+            if bl_id is None:
+                unknown_color_names[color_val] += 1
+                continue
 
-    if not bo_colors:
-        key = resolve_bo_api_key(args.bo_api_key)
-        if key:
+        prev = element_to_bl.get(element_id)
+        if prev is None:
+            element_to_bl[element_id] = bl_id
+        elif prev != bl_id:
+            issues.append({
+                "severity": "ERROR",
+                "issue_type": "BL_CODE_ELEMENT_COLOR_CONFLICT",
+                "rb_color_id": "",
+                "name": "",
+                "details": f"Element {element_id} aparece com múltiplos BL color_id: {prev} vs {bl_id}",
+                "suggestions": "Verificar codes.xml do BrickLink.",
+            })
+
+    if unknown_color_names:
+        top = ", ".join([f"{k}({v})" for k, v in unknown_color_names.most_common(10)])
+        issues.append({
+            "severity": "WARN",
+            "issue_type": "BL_CODE_COLOR_NOT_IN_COLORSXML",
+            "rb_color_id": "",
+            "name": "",
+            "details": f"Nomes de cor em codes.xml não encontrados em colors.xml (top10): {top}",
+            "suggestions": "Atualizar colors.xml ou normalização de nomes.",
+        })
+
+    # Crosswalk counts: rb_color_id -> Counter(bl_color_id)
+    pair_counts: Dict[int, Counter] = defaultdict(Counter)
+    relevant_rb: set[int] = set()
+    for element_id, rb_color_id in rb_elements.items():
+        bl_id = element_to_bl.get(element_id)
+        if bl_id is None:
+            continue
+        pair_counts[rb_color_id][bl_id] += 1
+        relevant_rb.add(rb_color_id)
+
+    resolved_rb_to_bl: Dict[int, int] = {}
+    for rb_id, c in pair_counts.items():
+        if not c:
+            continue
+        best_bl, best_n = c.most_common(1)[0]
+        total = sum(c.values())
+        if len(c) > 1 and (best_n / total) < 0.95:
+            suggestions = "; ".join([f"{bid}:{n}" for bid, n in c.most_common(5)])
+            issues.append({
+                "severity": "ERROR",
+                "issue_type": "RB_TO_BL_CONFLICT",
+                "rb_color_id": rb_id,
+                "name": rb_colors.get(rb_id, RBColor(rb_id, f"RB_{rb_id}", "", None, None)).name,
+                "details": f"RB color_id mapeia para múltiplos BL color_id (confiança {best_n}/{total}={best_n/total:.2%})",
+                "suggestions": f"Escolher no seed rb_color_id->{best_bl} ou outro. Candidatos: {suggestions}",
+            })
+            continue
+        resolved_rb_to_bl[rb_id] = best_bl
+
+    # Apply seed overrides (authoritative)
+    for rb_id, s in seed.items():
+        if s.bl_color_id is not None:
+            resolved_rb_to_bl[rb_id] = s.bl_color_id
+
+    # Optional: fetch BrickOwl color names (single call) for bo_color_name
+    bo_id_to_name: Dict[int, str] = {}
+    brickowl_key = os.environ.get("BRICKOWL_API_KEY", "").strip()
+    if brickowl_key:
+        try:
+            bo_id_to_name = BrickOwlAPI(brickowl_key).color_list()
+        except Exception as e:
+            issues.append({
+                "severity": "WARN",
+                "issue_type": "BRICKOWL_COLOR_LIST_FAILED",
+                "rb_color_id": "",
+                "name": "",
+                "details": f"Falha ao obter BrickOwl color_list (ignorado): {e}",
+                "suggestions": "Verificar BRICKOWL_API_KEY / conectividade.",
+            })
+
+    # API verification: validate that ids exist in providers (few calls)
+    if args.verify_apis == "colors":
+        # BrickLink
+        ck = os.environ.get("BRICKLINK_CONSUMER_KEY", "").strip()
+        cs = os.environ.get("BRICKLINK_CONSUMER_SECRET", "").strip()
+        tk = os.environ.get("BRICKLINK_TOKEN", "").strip()
+        ts = os.environ.get("BRICKLINK_TOKEN_SECRET", "").strip()
+        if ck and cs and tk and ts:
             try:
-                bo_colors = fetch_brickowl_color_list(key)
+                api_bl_colors = BrickLinkAPI(ck, cs, tk, ts).get_colors()
+                # compare: every resolved bl_color_id must exist in API list
+                for rb_id, bl_id in resolved_rb_to_bl.items():
+                    if bl_id not in api_bl_colors:
+                        issues.append({
+                            "severity": "ERROR",
+                            "issue_type": "BRICKLINK_API_COLOR_ID_UNKNOWN",
+                            "rb_color_id": rb_id,
+                            "name": rb_colors.get(rb_id, RBColor(rb_id, f"RB_{rb_id}", "", None, None)).name,
+                            "details": f"BL color_id={bl_id} não existe na API BrickLink (colors).",
+                            "suggestions": "Atualizar BrickLink colors.xml e/ou corrigir seed.",
+                        })
             except Exception as e:
-                # keep running; issues will explain that BO names cannot be resolved
-                bo_colors = {}
+                issues.append({
+                    "severity": "WARN",
+                    "issue_type": "BRICKLINK_API_COLORS_FAILED",
+                    "rb_color_id": "",
+                    "name": "",
+                    "details": f"Falha ao obter BrickLink colors via API (ignorado): {e}",
+                    "suggestions": "Verificar credenciais OAuth/limites.",
+                })
+        else:
+            issues.append({
+                "severity": "WARN",
+                "issue_type": "BRICKLINK_API_SKIPPED",
+                "rb_color_id": "",
+                "name": "",
+                "details": "Credenciais BrickLink OAuth não definidas; verificação BrickLink por API foi ignorada.",
+                "suggestions": "Definir secrets BRICKLINK_* no GitHub.",
+            })
 
-    rows, issues = build_color_map(rb_list, bl_colors, seed, bo_colors)
+        # Rebrickable
+        rb_key = os.environ.get("REBRICKABLE_API_KEY", "").strip()
+        if rb_key:
+            try:
+                api_rb_colors = RebrickableAPI(rb_key).get_colors()
+                for rb_id in rb_colors.keys():
+                    if rb_id not in api_rb_colors:
+                        issues.append({
+                            "severity": "ERROR",
+                            "issue_type": "REBRICKABLE_API_COLOR_ID_UNKNOWN",
+                            "rb_color_id": rb_id,
+                            "name": rb_colors[rb_id].name,
+                            "details": "RB color_id existe no ficheiro, mas não aparece na API.",
+                            "suggestions": "Confirmar versão do ficheiro colors.csv (downloads) vs API.",
+                        })
+            except Exception as e:
+                issues.append({
+                    "severity": "WARN",
+                    "issue_type": "REBRICKABLE_API_COLORS_FAILED",
+                    "rb_color_id": "",
+                    "name": "",
+                    "details": f"Falha ao obter Rebrickable colors via API (ignorado): {e}",
+                    "suggestions": "Verificar REBRICKABLE_API_KEY/limites.",
+                })
+        else:
+            issues.append({
+                "severity": "WARN",
+                "issue_type": "REBRICKABLE_API_SKIPPED",
+                "rb_color_id": "",
+                "name": "",
+                "details": "REBRICKABLE_API_KEY não definido; verificação Rebrickable por API foi ignorada.",
+                "suggestions": "Definir secret REBRICKABLE_API_KEY no GitHub.",
+            })
 
-    # Build audit
-    rb_map = {c.rb_color_id: c for c in rb_list}
-    audit_rows = build_audit_rows(rows, rb_map)
+        # BrickOwl (validate bo_color_id existence if provided)
+        if brickowl_key and bo_id_to_name:
+            for rb_id, s in seed.items():
+                if s.bo_color_id is not None and s.bo_color_id not in bo_id_to_name:
+                    issues.append({
+                        "severity": "ERROR",
+                        "issue_type": "BRICKOWL_COLOR_ID_UNKNOWN",
+                        "rb_color_id": rb_id,
+                        "name": rb_colors.get(rb_id, RBColor(rb_id, f"RB_{rb_id}", "", None, None)).name,
+                        "details": f"bo_color_id={s.bo_color_id} não existe no BrickOwl color_list.",
+                        "suggestions": "Corrigir seed bo_color_id.",
+                    })
 
-    # Write outputs
+    # Build outputs
+    out_rows: List[Dict[str, object]] = []
+    audit_rows: List[Dict[str, object]] = []
+
+    for rb_id in sorted(rb_colors.keys()):
+        rb = rb_colors[rb_id]
+        seed_row = seed.get(rb_id)
+
+        bl_id = resolved_rb_to_bl.get(rb_id)
+        bo_id = seed_row.bo_color_id if seed_row else None
+        bo_name = bo_id_to_name.get(bo_id, "") if bo_id is not None else ""
+        ldraw_id = (seed_row.ldraw_color_id if seed_row and seed_row.ldraw_color_id is not None else rb.ldraw_color_id)
+
+        # Missing BL: ERROR only if it's "relevant" (seen in element crosswalk); otherwise WARN
+        if bl_id is None and rb_id in relevant_rb:
+            issues.append({
+                "severity": "ERROR",
+                "issue_type": "BL_ID_MISSING_RELEVANT",
+                "rb_color_id": rb_id,
+                "name": rb.name,
+                "details": "Cor RB aparece no crosswalk por Element ID mas não tem BL color_id resolvido.",
+                "suggestions": "Adicionar override no seed (rb_color_id -> bl_color_id).",
+            })
+        elif bl_id is None:
+            issues.append({
+                "severity": "WARN",
+                "issue_type": "BL_ID_MISSING_UNUSED",
+                "rb_color_id": rb_id,
+                "name": rb.name,
+                "details": "Sem BL color_id (não aparece no crosswalk por Element ID).",
+                "suggestions": "",
+            })
+
+        if bo_id is None:
+            issues.append({
+                "severity": "WARN",
+                "issue_type": "BO_ID_MISSING",
+                "rb_color_id": rb_id,
+                "name": rb.name,
+                "details": "Sem BrickOwl color_id no seed.",
+                "suggestions": "",
+            })
+
+        out_rows.append({
+            "name": rb.name,
+            "rb_color_id": rb_id,
+            "bl_color_id": bl_id,
+            "bo_color_id": bo_id,
+            "bo_color_name": bo_name,
+            "ldraw_color_id": ldraw_id,
+        })
+
+        audit_rows.append({
+            "name": rb.name,
+            "rb_color_id": rb_id,
+            "rb_rgb": rb.rgb,
+            "rb_is_trans": rb.is_trans if rb.is_trans is not None else "",
+            "bl_color_id": bl_id if bl_id is not None else "",
+            "bl_color_name": bl_id_to_name.get(bl_id, "") if bl_id is not None else "",
+            "bl_rgb": bl_id_to_rgb.get(bl_id, "") if bl_id is not None else "",
+            "bo_color_id": bo_id if bo_id is not None else "",
+            "bo_color_name": bo_name,
+            "ldraw_color_id": ldraw_id if ldraw_id is not None else "",
+            "seed_bl": seed_row.bl_color_id if seed_row and seed_row.bl_color_id is not None else "",
+            "seed_bo": seed_row.bo_color_id if seed_row and seed_row.bo_color_id is not None else "",
+        })
+
     out_path = Path(args.out)
-    audit_path = Path(args.audit)
     issues_path = Path(args.issues)
+    audit_path = out_path.parent / "color_map_audit.csv"
 
-    write_csv(
-        out_path,
-        rows,
-        ["name", "rb_color_id", "bl_color_id", "bo_color_id", "ldraw_color_id", "bl_color_name", "bo_color_name"],
-    )
-    write_csv(
-        audit_path,
-        audit_rows,
-        ["name", "rb_color_id", "bl_color_id", "bo_color_id", "ldraw_color_id", "bl_color_name", "bo_color_name", "rb_name", "rb_rgb", "rb_is_trans"],
-    )
-    write_csv(
-        issues_path,
-        issues,
-        ["rb_color_id", "name", "issue", "details", "suggestions"],
-    )
+    write_csv(out_path,
+              ["name", "rb_color_id", "bl_color_id", "bo_color_id", "bo_color_name", "ldraw_color_id"],
+              out_rows)
+    write_csv(audit_path,
+              ["name", "rb_color_id", "rb_rgb", "rb_is_trans",
+               "bl_color_id", "bl_color_name", "bl_rgb",
+               "bo_color_id", "bo_color_name",
+               "ldraw_color_id", "seed_bl", "seed_bo"],
+              audit_rows)
+    write_csv(issues_path,
+              ["severity", "issue_type", "rb_color_id", "name", "details", "suggestions"],
+              issues)
 
-    # Summary
-    print(f"✅ Wrote: {out_path}  (rows={len(rows)})")
+    n_err = sum(1 for x in issues if x.get("severity") == "ERROR")
+    n_warn = sum(1 for x in issues if x.get("severity") == "WARN")
+
+    print(f"✅ Wrote: {out_path} (rows={len(out_rows)})")
     print(f"✅ Wrote: {audit_path} (rows={len(audit_rows)})")
-    print(f"✅ Wrote: {issues_path} (issues={len(issues)})")
+    print(f"✅ Wrote: {issues_path} (issues={len(issues)} | ERR={n_err} WARN={n_warn})")
 
-    if issues and args.strict:
-        print("❌ STRICT mode: issues found. Exiting with code 2.")
+    if args.strict_all and (n_err + n_warn) > 0:
+        print("❌ STRICT-ALL mode: issues found. Exiting with code 2.")
         return 2
-
+    if args.strict and n_err > 0:
+        print("❌ STRICT mode: ERROR issues found. Exiting with code 2.")
+        return 2
     return 0
 
 
