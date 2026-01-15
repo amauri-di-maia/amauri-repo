@@ -2,31 +2,44 @@
 # -*- coding: utf-8 -*-
 
 """
-Brickovery - build color_map (RB <-> BL [+ optional BO]) with realistic strictness.
+Brickovery - make color_map.csv with conflict resolution driven by BrickLink PART ID.
 
-Key points:
-- Deterministic RB->BL mapping via Element ID crosswalk:
-  BrickLink codes.xml (element_id -> BL color) + Rebrickable elements.csv (element_id -> RB color)
-- Seed (colors_seed.csv) is authoritative (overrides) and validated.
-- STRICT fails only on ERROR; WARN does not fail (realistic: not all colors converge across platforms).
-- Outputs:
-  data/color_map.csv
-  data/color_map_audit.csv
-  data/color_map_issues.csv
+Inputs:
+- BrickLink: colors.xml, codes.xml
+- Rebrickable: colors.csv, elements.csv
+- Seed: colors_seed.csv (authoritative overrides)
+
+Outputs:
+- data/color_map.csv
+- data/color_map_audit.csv
+- data/color_map_issues.csv
+
+Conflict handling (requested):
+When these arise (derived from element crosswalk):
+- BL_CODE_ELEMENT_COLOR_CONFLICT
+- RB_TO_BL_CONFLICT
+- BL_ID_MISSING_RELEVANT
+
+Process:
+1) derive involved BrickLink part id(s)
+2) query BrickLink API Get Known Colors for that part id (authoritative)
+3) if BrickLink API fails -> try Rebrickable API by BrickLink id to fetch part colors and project to BL via current mapping
+4) apply the best-supported BL color id, otherwise keep as unresolved WARN and suggest seed fix
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 import re
-import sys
+import time
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import requests
 from requests_oauthlib import OAuth1
@@ -73,6 +86,20 @@ def write_csv(path: Path, fieldnames: List[str], rows: List[Dict[str, object]]) 
             w.writerow({k: ("" if r.get(k) is None else r.get(k)) for k in fieldnames})
 
 
+def load_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 # -----------------------------
 # Models
 # -----------------------------
@@ -98,12 +125,6 @@ class SeedColor:
 # BrickLink XML
 # -----------------------------
 def load_bl_colors_xml(bl_colors_xml: Path) -> Tuple[Dict[str, int], Dict[int, str], Dict[int, str]]:
-    """
-    Returns:
-      name_norm -> bl_color_id
-      bl_color_id -> name
-      bl_color_id -> rgb
-    """
     root = ET.parse(str(bl_colors_xml)).getroot()
     items = root.findall("ITEM")
     if not items:
@@ -126,20 +147,21 @@ def load_bl_colors_xml(bl_colors_xml: Path) -> Tuple[Dict[str, int], Dict[int, s
     return name_to_id, id_to_name, id_to_rgb
 
 
-def iter_bl_codes(bl_codes_xml: Path) -> Iterable[Tuple[str, str]]:
+def iter_bl_codes_items(bl_codes_xml: Path) -> Iterable[Tuple[str, str, str, str]]:
     """
-    Yields (element_id, color_val) from BrickLink codes.xml.
-    element_id usually in CODENAME, sometimes CODE.
-    color_val can be either a color name or a numeric id (depends on source).
+    Yields (itemtype, itemid, element_id, color_val) from BrickLink codes.xml.
+    element_id = CODENAME or CODE.
     """
     ctx = ET.iterparse(str(bl_codes_xml), events=("end",))
     for _, elem in ctx:
         if elem.tag != "ITEM":
             continue
+        itemtype = (elem.findtext("ITEMTYPE") or "").strip().upper()
+        itemid = (elem.findtext("ITEMID") or "").strip()
         element_id = (elem.findtext("CODENAME") or elem.findtext("CODE") or "").strip()
         color_val = (elem.findtext("COLOR") or "").strip()
-        if element_id and color_val:
-            yield element_id, color_val
+        if itemtype and itemid and element_id and color_val:
+            yield itemtype, itemid, element_id, color_val
         elem.clear()
 
 
@@ -186,7 +208,6 @@ def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict
     seen = set()
     for line_no, row in enumerate(read_csv_dicts(seed_csv), start=2):
         name = (row.get("name") or "").strip()
-
         rb_id = parse_int_any(row.get("rb_color_id") or row.get("id") or row.get("color_id"))
         bl_id = parse_int_any(row.get("bl_color_id"))
         bo_id = parse_int_any(row.get("bo_color_id"))
@@ -221,7 +242,7 @@ def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict
                 "issue_type": "SEED_RB_COLOR_ID_UNKNOWN",
                 "rb_color_id": rb_id,
                 "name": name,
-                "details": "rb_color_id não existe no Rebrickable colors.csv usado neste run.",
+                "details": "rb_color_id não existe no Rebrickable colors.csv deste run.",
                 "suggestions": "Confirmar inputs/rebrickable/colors.csv.",
             })
 
@@ -231,7 +252,7 @@ def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict
                 "issue_type": "SEED_BL_COLOR_ID_UNKNOWN",
                 "rb_color_id": rb_id,
                 "name": name,
-                "details": f"bl_color_id={bl_id} não existe no BrickLink colors.xml usado neste run.",
+                "details": f"bl_color_id={bl_id} não existe no BrickLink colors.xml deste run.",
                 "suggestions": "Corrigir bl_color_id ou atualizar inputs/bricklink/colors.xml.",
             })
 
@@ -247,82 +268,244 @@ def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict
 
 
 # -----------------------------
-# Optional API verifiers (low call)
+# APIs
 # -----------------------------
 class BrickLinkAPI:
+    """
+    BrickLink Store API v1.
+    Known colors endpoint:
+      GET /items/{type}/{no}/colors
+    """
     base = "https://api.bricklink.com/api/store/v1"
 
     def __init__(self, consumer_key: str, consumer_secret: str, token: str, token_secret: str) -> None:
         self.auth = OAuth1(consumer_key, consumer_secret, token, token_secret)
 
-    def get_colors(self) -> Dict[int, str]:
-        url = f"{self.base}/colors"
-        r = requests.get(url, auth=self.auth, timeout=60)
+    def get_known_colors(self, item_type: str, item_no: str, timeout: int = 60) -> List[int]:
+        url = f"{self.base}/items/{item_type}/{item_no}/colors"
+        r = requests.get(url, auth=self.auth, timeout=timeout)
         r.raise_for_status()
         j = r.json()
-        out: Dict[int, str] = {}
+        out: List[int] = []
         for c in (j.get("data") or []):
             cid = parse_int_any(c.get("color_id"))
-            nm = (c.get("color_name") or "").strip()
-            if cid is not None and nm:
-                out[cid] = nm
-        return out
+            if cid is not None:
+                out.append(cid)
+        return sorted(set(out))
 
 
 class RebrickableAPI:
     base = "https://rebrickable.com/api/v3"
 
     def __init__(self, api_key: str) -> None:
-        self.api_key = api_key
+        self.headers = {"Authorization": f"key {api_key}"}
 
-    def get_colors(self) -> Dict[int, str]:
-        url = f"{self.base}/lego/colors/"
-        headers = {"Authorization": f"key {self.api_key}"}
-        out: Dict[int, str] = {}
-        page = 1
-        while True:
-            r = requests.get(url, headers=headers, params={"page": page, "page_size": 1000}, timeout=60)
-            r.raise_for_status()
-            j = r.json()
-            for c in (j.get("results") or []):
-                cid = parse_int_any(c.get("id"))
-                nm = (c.get("name") or "").strip()
-                if cid is not None and nm:
-                    out[cid] = nm
-            if not j.get("next"):
-                break
-            page += 1
-        return out
+    def find_part_nums_by_bricklink_id(self, bl_part_id: str) -> List[str]:
+        """
+        Try multiple query strategies (API behaviour may vary).
+        """
+        url = f"{self.base}/lego/parts/"
+        # Strategy A: external filter (may exist)
+        params_list = [
+            {"bricklink_id": bl_part_id, "page_size": 1000, "inc_part_details": 1},
+            {"search": bl_part_id, "page_size": 1000, "inc_part_details": 1},
+        ]
+        found: Set[str] = set()
+        for params in params_list:
+            try:
+                r = requests.get(url, headers=self.headers, params=params, timeout=60)
+                if r.status_code >= 400:
+                    continue
+                j = r.json()
+                for it in (j.get("results") or []):
+                    part_num = (it.get("part_num") or "").strip()
+                    ext = it.get("external_ids") or {}
+                    # ext format may vary; validate if possible
+                    bl_ext = None
+                    if isinstance(ext, dict):
+                        # common key "BrickLink"
+                        bl_ext = ext.get("BrickLink") or ext.get("bricklink")
+                    if part_num:
+                        # if we can confirm external id match, do it; else accept if search used
+                        if params.get("bricklink_id"):
+                            found.add(part_num)
+                        else:
+                            if bl_ext == bl_part_id or bl_ext is None:
+                                found.add(part_num)
+                if found:
+                    break
+            except Exception:
+                continue
+        return sorted(found)
 
-
-class BrickOwlAPI:
-    base = "https://api.brickowl.com/v1"
-
-    def __init__(self, api_key: str) -> None:
-        self.api_key = api_key
-
-    def color_list(self) -> Dict[int, str]:
-        url = f"{self.base}/catalog/color_list"
-        r = requests.get(url, params={"key": self.api_key}, timeout=60)
+    def get_part_colors(self, part_num: str) -> List[int]:
+        """
+        GET /api/v3/lego/parts/{part_num}/colors/
+        """
+        url = f"{self.base}/lego/parts/{part_num}/colors/"
+        r = requests.get(url, headers=self.headers, timeout=60)
         r.raise_for_status()
         j = r.json()
-        out: Dict[int, str] = {}
-        data = j.get("data")
-        if isinstance(data, dict):
-            for k, v in data.items():
-                cid = parse_int_any(k)
-                nm = ""
-                if isinstance(v, dict):
-                    nm = (v.get("name") or v.get("color_name") or "").strip()
+        out: List[int] = []
+        for it in (j.get("results") or j or []):
+            # depending on endpoint response, "color_id" may be direct
+            if isinstance(it, dict):
+                cid = parse_int_any(it.get("color_id") or (it.get("color") or {}).get("id"))
                 if cid is not None:
-                    out[cid] = nm
-        elif isinstance(data, list):
-            for v in data:
-                cid = parse_int_any(v.get("color_id") or v.get("id"))
-                nm = (v.get("name") or v.get("color_name") or "").strip()
-                if cid is not None:
-                    out[cid] = nm
-        return out
+                    out.append(cid)
+        return sorted(set(out))
+
+
+# -----------------------------
+# Resolver logic
+# -----------------------------
+def backoff_sleep(attempt: int) -> None:
+    time.sleep(min(30.0, 1.5 ** attempt))
+
+
+def get_bl_api() -> Optional[BrickLinkAPI]:
+    ck = os.environ.get("BRICKLINK_CONSUMER_KEY", "").strip()
+    cs = os.environ.get("BRICKLINK_CONSUMER_SECRET", "").strip()
+    tk = os.environ.get("BRICKLINK_TOKEN", "").strip()
+    ts = os.environ.get("BRICKLINK_TOKEN_SECRET", "").strip()
+    if ck and cs and tk and ts:
+        return BrickLinkAPI(ck, cs, tk, ts)
+    return None
+
+
+def get_rb_api() -> Optional[RebrickableAPI]:
+    key = os.environ.get("REBRICKABLE_API_KEY", "").strip()
+    if key:
+        return RebrickableAPI(key)
+    return None
+
+
+def known_colors_for_part(
+    bl_part_id: str,
+    bl_api: Optional[BrickLinkAPI],
+    rb_api: Optional[RebrickableAPI],
+    rb_to_bl_current: Dict[int, Optional[int]],
+    cache: dict,
+    issues: List[Dict[str, object]],
+) -> Set[int]:
+    """
+    Tiered:
+    1) BrickLink Get Known Colors (authoritative)
+    2) Rebrickable Part Colors by BrickLink id -> project to BL via rb_to_bl_current
+    """
+    cache.setdefault("known_colors", {})
+    if bl_part_id in cache["known_colors"]:
+        return set(cache["known_colors"][bl_part_id])
+
+    # 1) BrickLink
+    if bl_api is not None:
+        for attempt in range(6):
+            try:
+                cols = bl_api.get_known_colors("P", bl_part_id)
+                cache["known_colors"][bl_part_id] = cols
+                return set(cols)
+            except requests.HTTPError as e:
+                status = getattr(e.response, "status_code", None)
+                if status in (429, 500, 502, 503, 504):
+                    backoff_sleep(attempt)
+                    continue
+                issues.append({
+                    "severity": "WARN",
+                    "issue_type": "BRICKLINK_KNOWN_COLORS_FAILED",
+                    "rb_color_id": "",
+                    "name": "",
+                    "details": f"BrickLink known colors falhou para part {bl_part_id} (HTTP {status}).",
+                    "suggestions": "Fallback para Rebrickable será usado se possível.",
+                })
+                break
+            except Exception as e:
+                issues.append({
+                    "severity": "WARN",
+                    "issue_type": "BRICKLINK_KNOWN_COLORS_FAILED",
+                    "rb_color_id": "",
+                    "name": "",
+                    "details": f"BrickLink known colors falhou para part {bl_part_id}: {e}",
+                    "suggestions": "Fallback para Rebrickable será usado se possível.",
+                })
+                break
+
+    # 2) Rebrickable fallback
+    if rb_api is not None:
+        try:
+            part_nums = rb_api.find_part_nums_by_bricklink_id(bl_part_id)
+            projected: Set[int] = set()
+            for pn in part_nums[:5]:  # cap: avoid explosion
+                rb_colors = rb_api.get_part_colors(pn)
+                for rb_c in rb_colors:
+                    bl_c = rb_to_bl_current.get(rb_c)
+                    if bl_c is not None:
+                        projected.add(bl_c)
+            if projected:
+                cache["known_colors"][bl_part_id] = sorted(projected)
+                return projected
+            issues.append({
+                "severity": "WARN",
+                "issue_type": "REBRICKABLE_FALLBACK_EMPTY",
+                "rb_color_id": "",
+                "name": "",
+                "details": f"Fallback Rebrickable não devolveu cores projetáveis para BL part {bl_part_id}.",
+                "suggestions": "Resolver via seed ou credenciais BrickLink.",
+            })
+        except Exception as e:
+            issues.append({
+                "severity": "WARN",
+                "issue_type": "REBRICKABLE_FALLBACK_FAILED",
+                "rb_color_id": "",
+                "name": "",
+                "details": f"Fallback Rebrickable falhou para BL part {bl_part_id}: {e}",
+                "suggestions": "Resolver via seed ou credenciais BrickLink.",
+            })
+
+    cache["known_colors"][bl_part_id] = []
+    return set()
+
+
+def resolve_bl_color_by_part_support(
+    part_ids: List[str],
+    candidates: List[int],
+    bl_api: Optional[BrickLinkAPI],
+    rb_api: Optional[RebrickableAPI],
+    rb_to_bl_current: Dict[int, Optional[int]],
+    cache: dict,
+    issues: List[Dict[str, object]],
+    max_part_checks: int,
+) -> Tuple[Optional[int], Dict[int, int], int]:
+    """
+    Returns: (best_candidate_or_none, support_counts, parts_checked)
+    """
+    if not candidates:
+        return None, {}, 0
+    if len(candidates) == 1:
+        return candidates[0], {candidates[0]: 0}, 0
+
+    # Limit API work
+    parts = part_ids[:max_part_checks]
+    support: Dict[int, int] = {c: 0 for c in candidates}
+
+    for pid in parts:
+        known = known_colors_for_part(pid, bl_api, rb_api, rb_to_bl_current, cache, issues)
+        for c in candidates:
+            if c in known:
+                support[c] += 1
+
+    # Pick best
+    best = sorted(support.items(), key=lambda kv: (-kv[1], kv[0]))[0]
+    best_c, best_n = best
+    # If tie on top, return None (unresolved)
+    top = [c for c, n in support.items() if n == best_n]
+    if len(top) > 1:
+        return None, support, len(parts)
+
+    # require some confidence if we actually checked parts
+    if len(parts) > 0 and best_n == 0:
+        return None, support, len(parts)
+
+    return best_c, support, len(parts)
 
 
 # -----------------------------
@@ -335,13 +518,16 @@ def main() -> int:
     ap.add_argument("--rb-elements", required=True)
     ap.add_argument("--rb-colors", required=True)
     ap.add_argument("--seed", required=True)
+
     ap.add_argument("--out", required=True)
     ap.add_argument("--audit", required=True)
     ap.add_argument("--issues", required=True)
-    ap.add_argument("--strict", action="store_true", help="Falha apenas com ERROR.")
-    ap.add_argument("--strict-all", action="store_true", help="Falha com ERROR ou WARN (não recomendado).")
-    ap.add_argument("--verify-apis", choices=["none", "colors"], default="none",
-                    help="Verifica IDs via APIs (poucas chamadas). Não bloqueia se creds faltarem.")
+
+    ap.add_argument("--cache-json", default="data/api_cache.json")
+    ap.add_argument("--max-part-checks", type=int, default=60)
+
+    ap.add_argument("--strict", action="store_true", help="Falha apenas com ERROR (estrutural).")
+    ap.add_argument("--strict-all", action="store_true", help="Falha com ERROR+WARN (auditoria total).")
     args = ap.parse_args()
 
     bl_name_to_id, bl_id_to_name, bl_id_to_rgb = load_bl_colors_xml(Path(args.bl_colors_xml))
@@ -351,180 +537,152 @@ def main() -> int:
 
     issues: List[Dict[str, object]] = list(seed_issues)
 
-    # element_id -> BL color_id (from codes.xml + colors.xml)
-    element_to_bl: Dict[str, int] = {}
-    unknown_code_colors = Counter()
+    cache_path = Path(args.cache_json)
+    cache = load_json(cache_path)
 
-    for element_id, color_val in iter_bl_codes(Path(args.bl_codes_xml)):
+    bl_api = get_bl_api()
+    rb_api = get_rb_api()
+
+    # Parse BrickLink codes.xml into:
+    # element_id -> Counter(bl_color_id)
+    # element_id -> set(part_id)
+    element_color_counts: Dict[str, Counter] = defaultdict(Counter)
+    element_parts: Dict[str, Set[str]] = defaultdict(set)
+
+    unknown_color_tokens = Counter()
+
+    for itemtype, itemid, element_id, color_val in iter_bl_codes_items(Path(args.bl_codes_xml)):
+        if itemtype != "P":
+            continue
         bl_id = parse_int_any(color_val)
         if bl_id is None:
             bl_id = bl_name_to_id.get(norm(color_val))
         if bl_id is None:
-            unknown_code_colors[color_val] += 1
+            unknown_color_tokens[color_val] += 1
+            continue
+        element_color_counts[element_id][bl_id] += 1
+        element_parts[element_id].add(itemid)
+
+    if unknown_color_tokens:
+        top = ", ".join([f"{k}({v})" for k, v in unknown_color_tokens.most_common(10)])
+        issues.append({
+            "severity": "WARN",
+            "issue_type": "BL_CODES_COLOR_NOT_RESOLVED",
+            "rb_color_id": "",
+            "name": "",
+            "details": f"codes.xml contém tokens de cor não resolvidos via colors.xml (top10): {top}",
+            "suggestions": "Atualizar inputs/bricklink/colors.xml ou normalização.",
+        })
+
+    # Diagnose element conflicts and attempt resolution by part support
+    element_resolved_color: Dict[str, Optional[int]] = {}
+
+    for element_id, c in element_color_counts.items():
+        if len(c) <= 1:
+            element_resolved_color[element_id] = next(iter(c.keys())) if c else None
             continue
 
-        prev = element_to_bl.get(element_id)
-        if prev is None:
-            element_to_bl[element_id] = bl_id
-        elif prev != bl_id:
+        candidates = [bid for bid, _ in c.most_common()]
+        parts = sorted(element_parts.get(element_id, set()))
+        best, support, checked = resolve_bl_color_by_part_support(
+            parts, candidates, bl_api, rb_api, {}, cache, issues, args.max_part_checks
+        )
+
+        if best is not None:
+            element_resolved_color[element_id] = best
             issues.append({
-                "severity": "ERROR",
+                "severity": "WARN",
+                "issue_type": "BL_CODE_ELEMENT_COLOR_CONFLICT_RESOLVED",
+                "rb_color_id": "",
+                "name": "",
+                "details": f"Element {element_id} tinha múltiplos BL color_id {candidates}; resolvido para {best} via parts_checked={checked}, support={support}",
+                "suggestions": "Se quiseres, fixa este caso no seed/nota interna; mapping continua.",
+            })
+        else:
+            element_resolved_color[element_id] = None
+            issues.append({
+                "severity": "WARN",
                 "issue_type": "BL_CODE_ELEMENT_COLOR_CONFLICT",
                 "rb_color_id": "",
                 "name": "",
-                "details": f"Element {element_id} aparece com múltiplos BL color_id: {prev} vs {bl_id}",
-                "suggestions": "Verificar inputs/bricklink/codes.xml.",
+                "details": f"Element {element_id} aparece com múltiplos BL color_id {candidates}; não foi possível resolver (parts_checked={checked}, support={support})",
+                "suggestions": "Ignorado como determinístico; resolver apenas se afetar um caso específico no seed.",
             })
 
-    if unknown_code_colors:
-        top = ", ".join([f"{k}({v})" for k, v in unknown_code_colors.most_common(10)])
-        issues.append({
-            "severity": "WARN",
-            "issue_type": "BL_CODE_COLOR_NOT_IN_COLORSXML",
-            "rb_color_id": "",
-            "name": "",
-            "details": f"Nomes/IDs em codes.xml não resolvidos via colors.xml (top10): {top}",
-            "suggestions": "Atualizar colors.xml ou normalização.",
-        })
-
-    # Crosswalk counts: rb_color_id -> Counter(bl_color_id)
-    pair_counts: Dict[int, Counter] = defaultdict(Counter)
-    relevant_rb: set[int] = set()
-
-    for element_id, rb_color_id in rb_elements.items():
-        bl_id = element_to_bl.get(element_id)
-        if bl_id is None:
+    # Initial RB->BL mapping: seed OR name match
+    rb_to_bl: Dict[int, Optional[int]] = {}
+    rb_to_bl_source: Dict[int, str] = {}
+    for rb_id, rb in rb_colors.items():
+        s = seed.get(rb_id)
+        if s and s.bl_color_id is not None:
+            rb_to_bl[rb_id] = s.bl_color_id
+            rb_to_bl_source[rb_id] = "seed"
             continue
-        pair_counts[rb_color_id][bl_id] += 1
-        relevant_rb.add(rb_color_id)
+        m = bl_name_to_id.get(norm(rb.name))
+        rb_to_bl[rb_id] = m
+        rb_to_bl_source[rb_id] = "name" if m is not None else "none"
 
-    # Resolve rb_color_id -> bl_color_id by dominance
-    resolved_rb_to_bl: Dict[int, int] = {}
-    for rb_id, c in pair_counts.items():
+    # Build RB candidates from element crosswalk:
+    # rb_color_id -> Counter(candidate_bl_color_id) + involved parts
+    rb_candidate_counts: Dict[int, Counter] = defaultdict(Counter)
+    rb_involved_parts: Dict[int, Set[str]] = defaultdict(set)
+
+    for element_id, rb_c in rb_elements.items():
+        # pick deterministic element color if resolved; else consider all candidates
+        if element_id in element_resolved_color and element_resolved_color[element_id] is not None:
+            bl_cands = [element_resolved_color[element_id]]
+        else:
+            bl_cands = list(element_color_counts.get(element_id, {}).keys())
+        if not bl_cands:
+            continue
+        for blc in bl_cands:
+            rb_candidate_counts[rb_c][blc] += 1
+        for pid in element_parts.get(element_id, set()):
+            rb_involved_parts[rb_c].add(pid)
+
+    # Resolve RB_TO_BL_CONFLICT / BL_ID_MISSING_RELEVANT using BrickLink PARTs + Known Colors
+    for rb_id, c in rb_candidate_counts.items():
         if not c:
             continue
-        best_bl, best_n = c.most_common(1)[0]
-        total = sum(c.values())
-        # conflict if significant disagreement
-        if len(c) > 1 and (best_n / total) < 0.95:
-            suggestions = "; ".join([f"{bid}:{n}" for bid, n in c.most_common(5)])
+        candidates = [bid for bid, _ in c.most_common()]
+        current = rb_to_bl.get(rb_id)
+        source = rb_to_bl_source.get(rb_id, "none")
+
+        needs_resolve = (current is None and len(candidates) >= 1) or (len(candidates) > 1 and source != "seed")
+        if not needs_resolve:
+            continue
+
+        parts = sorted(rb_involved_parts.get(rb_id, set()))
+        best, support, checked = resolve_bl_color_by_part_support(
+            parts, candidates, bl_api, rb_api, rb_to_bl, cache, issues, args.max_part_checks
+        )
+
+        if best is not None:
+            # don't override seed
+            if source != "seed":
+                rb_to_bl[rb_id] = best
+                rb_to_bl_source[rb_id] = "api_resolve"
             issues.append({
-                "severity": "ERROR",
-                "issue_type": "RB_TO_BL_CONFLICT",
+                "severity": "WARN",
+                "issue_type": "RB_TO_BL_CONFLICT_RESOLVED" if len(candidates) > 1 else "BL_ID_MISSING_RELEVANT_RESOLVED",
                 "rb_color_id": rb_id,
                 "name": rb_colors.get(rb_id, RBColor(rb_id, f"RB_{rb_id}", "", None, None)).name,
-                "details": f"RB color mapeia para múltiplos BL colors (confiança {best_n}/{total}={best_n/total:.2%})",
-                "suggestions": f"Fixar no seed. Candidatos: {suggestions}",
+                "details": f"RB candidates={candidates}; escolhido={best}; parts_checked={checked}; support={support}; source_before={source}",
+                "suggestions": "Se quiseres ‘perfeição auditável’, fixa este rb_color_id no seed.",
             })
-            continue
-        resolved_rb_to_bl[rb_id] = best_bl
-
-    # Seed overrides are authoritative
-    for rb_id, s in seed.items():
-        if s.bl_color_id is not None:
-            resolved_rb_to_bl[rb_id] = s.bl_color_id
-
-    # Optional BrickOwl color list (single call) for bo_color_name + validation
-    bo_id_to_name: Dict[int, str] = {}
-    brickowl_key = os.environ.get("BRICKOWL_API_KEY", "").strip()
-    if brickowl_key:
-        try:
-            bo_id_to_name = BrickOwlAPI(brickowl_key).color_list()
-        except Exception as e:
-            issues.append({
-                "severity": "WARN",
-                "issue_type": "BRICKOWL_COLOR_LIST_FAILED",
-                "rb_color_id": "",
-                "name": "",
-                "details": f"Falha BrickOwl color_list (ignorado): {e}",
-                "suggestions": "Verificar BRICKOWL_API_KEY/limites.",
-            })
-
-    # API verify (optional, low-call, does not block if creds missing)
-    if args.verify_apis == "colors":
-        # BrickLink
-        ck = os.environ.get("BRICKLINK_CONSUMER_KEY", "").strip()
-        cs = os.environ.get("BRICKLINK_CONSUMER_SECRET", "").strip()
-        tk = os.environ.get("BRICKLINK_TOKEN", "").strip()
-        ts = os.environ.get("BRICKLINK_TOKEN_SECRET", "").strip()
-        if ck and cs and tk and ts:
-            try:
-                api_bl_colors = BrickLinkAPI(ck, cs, tk, ts).get_colors()
-                for rb_id, bl_id in resolved_rb_to_bl.items():
-                    if bl_id not in api_bl_colors:
-                        issues.append({
-                            "severity": "ERROR",
-                            "issue_type": "BRICKLINK_API_COLOR_ID_UNKNOWN",
-                            "rb_color_id": rb_id,
-                            "name": rb_colors.get(rb_id, RBColor(rb_id, f"RB_{rb_id}", "", None, None)).name,
-                            "details": f"BL color_id={bl_id} não existe na API BrickLink (colors).",
-                            "suggestions": "Atualizar colors.xml/seed.",
-                        })
-            except Exception as e:
-                issues.append({
-                    "severity": "WARN",
-                    "issue_type": "BRICKLINK_API_COLORS_FAILED",
-                    "rb_color_id": "",
-                    "name": "",
-                    "details": f"Falha BrickLink colors via API (ignorado): {e}",
-                    "suggestions": "Verificar OAuth/limites.",
-                })
         else:
+            # unresolved: keep current; if missing, stay missing
             issues.append({
                 "severity": "WARN",
-                "issue_type": "BRICKLINK_API_SKIPPED",
-                "rb_color_id": "",
-                "name": "",
-                "details": "Credenciais BrickLink OAuth ausentes; verificação por API ignorada.",
-                "suggestions": "Definir secrets BRICKLINK_*.",
+                "issue_type": "RB_TO_BL_CONFLICT" if len(candidates) > 1 else "BL_ID_MISSING_RELEVANT",
+                "rb_color_id": rb_id,
+                "name": rb_colors.get(rb_id, RBColor(rb_id, f"RB_{rb_id}", "", None, None)).name,
+                "details": f"RB candidates={candidates}; não resolvido via parts_checked={checked}; support={support}; current={current}; source={source}",
+                "suggestions": "Adicionar override no seed para resolver definitivamente.",
             })
 
-        # Rebrickable
-        rb_key = os.environ.get("REBRICKABLE_API_KEY", "").strip()
-        if rb_key:
-            try:
-                api_rb_colors = RebrickableAPI(rb_key).get_colors()
-                for rb_id, rb in rb_colors.items():
-                    if rb_id not in api_rb_colors:
-                        issues.append({
-                            "severity": "ERROR",
-                            "issue_type": "REBRICKABLE_API_COLOR_ID_UNKNOWN",
-                            "rb_color_id": rb_id,
-                            "name": rb.name,
-                            "details": "RB color_id existe no ficheiro, mas não aparece na API.",
-                            "suggestions": "Confirmirar versão do ficheiro colors.csv.",
-                        })
-            except Exception as e:
-                issues.append({
-                    "severity": "WARN",
-                    "issue_type": "REBRICKABLE_API_COLORS_FAILED",
-                    "rb_color_id": "",
-                    "name": "",
-                    "details": f"Falha Rebrickable colors via API (ignorado): {e}",
-                    "suggestions": "Verificar REBRICKABLE_API_KEY/limites.",
-                })
-        else:
-            issues.append({
-                "severity": "WARN",
-                "issue_type": "REBRICKABLE_API_SKIPPED",
-                "rb_color_id": "",
-                "name": "",
-                "details": "REBRICKABLE_API_KEY ausente; verificação por API ignorada.",
-                "suggestions": "Definir secret REBRICKABLE_API_KEY.",
-            })
-
-        # BrickOwl: validate provided bo_color_id if we have a list
-        if bo_id_to_name:
-            for rb_id, s in seed.items():
-                if s.bo_color_id is not None and s.bo_color_id not in bo_id_to_name:
-                    issues.append({
-                        "severity": "ERROR",
-                        "issue_type": "BRICKOWL_COLOR_ID_UNKNOWN",
-                        "rb_color_id": rb_id,
-                        "name": rb_colors.get(rb_id, RBColor(rb_id, f"RB_{rb_id}", "", None, None)).name,
-                        "details": f"bo_color_id={s.bo_color_id} não existe no BrickOwl color_list.",
-                        "suggestions": "Corrigir seed bo_color_id.",
-                    })
+    # Save cache
+    save_json(cache_path, cache)
 
     # Build outputs
     out_rows: List[Dict[str, object]] = []
@@ -534,43 +692,22 @@ def main() -> int:
         rb = rb_colors[rb_id]
         s = seed.get(rb_id)
 
-        bl_id = resolved_rb_to_bl.get(rb_id)
-        bo_id = s.bo_color_id if s else None
-        bo_name = bo_id_to_name.get(bo_id, "") if bo_id is not None else ""
+        bl_id = rb_to_bl.get(rb_id)
+        bl_source = rb_to_bl_source.get(rb_id, "none")
 
+        bo_id = s.bo_color_id if s else None
         ldraw_id = rb.ldraw_color_id
         if s and s.ldraw_color_id is not None:
             ldraw_id = s.ldraw_color_id
 
-        # Missing BL: ERROR only if RB color is relevant (seen in element crosswalk)
-        if bl_id is None and rb_id in relevant_rb:
-            issues.append({
-                "severity": "ERROR",
-                "issue_type": "BL_ID_MISSING_RELEVANT",
-                "rb_color_id": rb_id,
-                "name": rb.name,
-                "details": "Sem bl_color_id apesar de existir evidência via Element ID crosswalk.",
-                "suggestions": "Fixar no seed (rb_color_id -> bl_color_id).",
-            })
-        elif bl_id is None:
+        if bl_id is None:
             issues.append({
                 "severity": "WARN",
-                "issue_type": "BL_ID_MISSING_RB_ONLY",
+                "issue_type": "BL_ID_MISSING",
                 "rb_color_id": rb_id,
                 "name": rb.name,
-                "details": "Sem bl_color_id e sem evidência de convergência via Element ID (aceitável).",
-                "suggestions": "",
-            })
-
-        # Missing BO: warn (for now)
-        if bo_id is None:
-            issues.append({
-                "severity": "WARN",
-                "issue_type": "BO_ID_MISSING",
-                "rb_color_id": rb_id,
-                "name": rb.name,
-                "details": "Sem bo_color_id (ainda não é obrigatório).",
-                "suggestions": "",
+                "details": "Sem bl_color_id (aceitável: pode não existir no BrickLink).",
+                "suggestions": "Se existir no BrickLink, fixa no seed.",
             })
 
         out_rows.append({
@@ -578,7 +715,7 @@ def main() -> int:
             "rb_color_id": rb_id,
             "bl_color_id": bl_id,
             "bo_color_id": bo_id,
-            "bo_color_name": bo_name,
+            "bo_color_name": "",  # preenchimento BO pode ser adicionado depois (opcional)
             "ldraw_color_id": ldraw_id,
         })
 
@@ -590,36 +727,30 @@ def main() -> int:
             "bl_color_id": bl_id if bl_id is not None else "",
             "bl_color_name": bl_id_to_name.get(bl_id, "") if bl_id is not None else "",
             "bl_rgb": bl_id_to_rgb.get(bl_id, "") if bl_id is not None else "",
-            "bo_color_id": bo_id if bo_id is not None else "",
-            "bo_color_name": bo_name,
+            "bl_source": bl_source,
             "ldraw_color_id": ldraw_id if ldraw_id is not None else "",
             "seed_bl": s.bl_color_id if s and s.bl_color_id is not None else "",
-            "seed_bo": s.bo_color_id if s and s.bo_color_id is not None else "",
         })
 
-    out_path = Path(args.out)
-    audit_path = Path(args.audit)
-    issues_path = Path(args.issues)
-
-    write_csv(out_path,
+    write_csv(Path(args.out),
               ["name", "rb_color_id", "bl_color_id", "bo_color_id", "bo_color_name", "ldraw_color_id"],
               out_rows)
-    write_csv(audit_path,
+    write_csv(Path(args.audit),
               ["name", "rb_color_id", "rb_rgb", "rb_is_trans",
-               "bl_color_id", "bl_color_name", "bl_rgb",
-               "bo_color_id", "bo_color_name",
-               "ldraw_color_id", "seed_bl", "seed_bo"],
+               "bl_color_id", "bl_color_name", "bl_rgb", "bl_source",
+               "ldraw_color_id", "seed_bl"],
               audit_rows)
-    write_csv(issues_path,
+    write_csv(Path(args.issues),
               ["severity", "issue_type", "rb_color_id", "name", "details", "suggestions"],
               issues)
 
     n_err = sum(1 for x in issues if x.get("severity") == "ERROR")
     n_warn = sum(1 for x in issues if x.get("severity") == "WARN")
 
-    print(f"✅ Wrote: {out_path} (rows={len(out_rows)})")
-    print(f"✅ Wrote: {audit_path} (rows={len(audit_rows)})")
-    print(f"✅ Wrote: {issues_path} (issues={len(issues)} | ERR={n_err} WARN={n_warn})")
+    print(f"✅ Wrote: {args.out} (rows={len(out_rows)})")
+    print(f"✅ Wrote: {args.audit} (rows={len(audit_rows)})")
+    print(f"✅ Wrote: {args.issues} (issues={len(issues)} | ERR={n_err} WARN={n_warn})")
+    print(f"✅ Cache: {cache_path}")
 
     if args.strict_all and (n_err + n_warn) > 0:
         print("❌ STRICT-ALL mode: issues found. Exiting with code 2.")
