@@ -1,6 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+Brickovery - build color_map (RB <-> BL [+ optional BO]) with realistic strictness.
+
+Key points:
+- Deterministic RB->BL mapping via Element ID crosswalk:
+  BrickLink codes.xml (element_id -> BL color) + Rebrickable elements.csv (element_id -> RB color)
+- Seed (colors_seed.csv) is authoritative (overrides) and validated.
+- STRICT fails only on ERROR; WARN does not fail (realistic: not all colors converge across platforms).
+- Outputs:
+  data/color_map.csv
+  data/color_map_audit.csv
+  data/color_map_issues.csv
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -8,7 +22,6 @@ import csv
 import os
 import re
 import sys
-import time
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -61,7 +74,7 @@ def write_csv(path: Path, fieldnames: List[str], rows: List[Dict[str, object]]) 
 
 
 # -----------------------------
-# Data models
+# Models
 # -----------------------------
 @dataclass
 class RBColor:
@@ -82,36 +95,24 @@ class SeedColor:
 
 
 # -----------------------------
-# Loaders
+# BrickLink XML
 # -----------------------------
-def load_rb_colors(rb_colors_csv: Path) -> Dict[int, RBColor]:
-    out: Dict[int, RBColor] = {}
-    for row in read_csv_dicts(rb_colors_csv):
-        rb_id = parse_int_any(row.get("id") or row.get("rb_color_id") or row.get("color_id"))
-        if rb_id is None:
-            continue
-        name = (row.get("name") or row.get("color_name") or f"RB_{rb_id}").strip()
-        rgb = (row.get("rgb") or row.get("rb_rgb") or "").strip()
-        is_trans = parse_int_any(row.get("is_trans") or row.get("transparent") or row.get("rb_is_trans"))
-        ldraw = parse_int_any(row.get("ldraw_id") or row.get("ldraw_color_id"))
-        out[rb_id] = RBColor(rb_color_id=rb_id, name=name, rgb=rgb, is_trans=is_trans, ldraw_color_id=ldraw)
-    return out
-
-
 def load_bl_colors_xml(bl_colors_xml: Path) -> Tuple[Dict[str, int], Dict[int, str], Dict[int, str]]:
     """
     Returns:
       name_norm -> bl_color_id
-      bl_color_id -> bl_color_name
-      bl_color_id -> bl_rgb
+      bl_color_id -> name
+      bl_color_id -> rgb
     """
     root = ET.parse(str(bl_colors_xml)).getroot()
     items = root.findall("ITEM")
     if not items:
         raise RuntimeError(f"BrickLink colors.xml has 0 ITEM nodes: {bl_colors_xml}")
+
     name_to_id: Dict[str, int] = {}
     id_to_name: Dict[int, str] = {}
     id_to_rgb: Dict[int, str] = {}
+
     for it in items:
         cid = parse_int_any(it.findtext("COLOR"))
         nm = (it.findtext("COLORNAME") or "").strip()
@@ -121,23 +122,42 @@ def load_bl_colors_xml(bl_colors_xml: Path) -> Tuple[Dict[str, int], Dict[int, s
         name_to_id[norm(nm)] = cid
         id_to_name[cid] = nm
         id_to_rgb[cid] = rgb
+
     return name_to_id, id_to_name, id_to_rgb
 
 
 def iter_bl_codes(bl_codes_xml: Path) -> Iterable[Tuple[str, str]]:
     """
-    Yields (element_id, color_name_or_id_string) from BrickLink codes.xml
-    Supports both CODENAME and CODE as element identifier.
+    Yields (element_id, color_val) from BrickLink codes.xml.
+    element_id usually in CODENAME, sometimes CODE.
+    color_val can be either a color name or a numeric id (depends on source).
     """
     ctx = ET.iterparse(str(bl_codes_xml), events=("end",))
     for _, elem in ctx:
         if elem.tag != "ITEM":
             continue
-        color_val = (elem.findtext("COLOR") or "").strip()
         element_id = (elem.findtext("CODENAME") or elem.findtext("CODE") or "").strip()
-        if color_val and element_id:
+        color_val = (elem.findtext("COLOR") or "").strip()
+        if element_id and color_val:
             yield element_id, color_val
         elem.clear()
+
+
+# -----------------------------
+# Rebrickable CSV
+# -----------------------------
+def load_rb_colors(rb_colors_csv: Path) -> Dict[int, RBColor]:
+    out: Dict[int, RBColor] = {}
+    for row in read_csv_dicts(rb_colors_csv):
+        rb_id = parse_int_any(row.get("id") or row.get("rb_color_id") or row.get("color_id"))
+        if rb_id is None:
+            continue
+        name = (row.get("name") or row.get("color_name") or f"RB_{rb_id}").strip()
+        rgb = (row.get("rgb") or "").strip()
+        is_trans = parse_int_any(row.get("is_trans") or row.get("transparent"))
+        ldraw = parse_int_any(row.get("ldraw_id") or row.get("ldraw_color_id"))
+        out[rb_id] = RBColor(rb_color_id=rb_id, name=name, rgb=rgb, is_trans=is_trans, ldraw_color_id=ldraw)
+    return out
 
 
 def load_rb_elements(rb_elements_csv: Path) -> Dict[str, int]:
@@ -146,16 +166,19 @@ def load_rb_elements(rb_elements_csv: Path) -> Dict[str, int]:
     """
     out: Dict[str, int] = {}
     for row in read_csv_dicts(rb_elements_csv):
-        element_id = (row.get("element_id") or row.get("element") or "").strip()
+        element_id = (row.get("element_id") or "").strip()
         color_id = parse_int_any(row.get("color_id") or row.get("colour_id"))
         if element_id and color_id is not None:
             out[element_id] = color_id
     return out
 
 
+# -----------------------------
+# Seed
+# -----------------------------
 def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict[int, str]) -> Tuple[Dict[int, SeedColor], List[Dict[str, object]]]:
-    issues: List[Dict[str, object]] = []
     seed: Dict[int, SeedColor] = {}
+    issues: List[Dict[str, object]] = []
 
     if not seed_csv.exists():
         return seed, issues
@@ -163,6 +186,7 @@ def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict
     seen = set()
     for line_no, row in enumerate(read_csv_dicts(seed_csv), start=2):
         name = (row.get("name") or "").strip()
+
         rb_id = parse_int_any(row.get("rb_color_id") or row.get("id") or row.get("color_id"))
         bl_id = parse_int_any(row.get("bl_color_id"))
         bo_id = parse_int_any(row.get("bo_color_id"))
@@ -175,7 +199,7 @@ def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict
                 "rb_color_id": "",
                 "name": name,
                 "details": f"Seed line {line_no}: rb_color_id vazio/ inválido.",
-                "suggestions": "Corrigir rb_color_id (ex: Black -> 0).",
+                "suggestions": "Corrigir rb_color_id.",
             })
             continue
 
@@ -197,8 +221,8 @@ def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict
                 "issue_type": "SEED_RB_COLOR_ID_UNKNOWN",
                 "rb_color_id": rb_id,
                 "name": name,
-                "details": f"Seed line {line_no}: rb_color_id não existe em Rebrickable colors.csv.",
-                "suggestions": "Confirmar ficheiro colors.csv do Rebrickable.",
+                "details": "rb_color_id não existe no Rebrickable colors.csv usado neste run.",
+                "suggestions": "Confirmar inputs/rebrickable/colors.csv.",
             })
 
         if bl_id is not None and bl_id not in bl_id_to_name:
@@ -207,8 +231,8 @@ def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict
                 "issue_type": "SEED_BL_COLOR_ID_UNKNOWN",
                 "rb_color_id": rb_id,
                 "name": name,
-                "details": f"Seed line {line_no}: bl_color_id={bl_id} não existe no BrickLink colors.xml.",
-                "suggestions": "Corrigir bl_color_id ou atualizar colors.xml.",
+                "details": f"bl_color_id={bl_id} não existe no BrickLink colors.xml usado neste run.",
+                "suggestions": "Corrigir bl_color_id ou atualizar inputs/bricklink/colors.xml.",
             })
 
         seed[rb_id] = SeedColor(
@@ -223,23 +247,21 @@ def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict
 
 
 # -----------------------------
-# API verifiers (low-call strategy)
+# Optional API verifiers (low call)
 # -----------------------------
 class BrickLinkAPI:
-    base = "https://api.bricklink.com/api/store/v1"  # official base URL :contentReference[oaicite:4]{index=4}
+    base = "https://api.bricklink.com/api/store/v1"
 
     def __init__(self, consumer_key: str, consumer_secret: str, token: str, token_secret: str) -> None:
         self.auth = OAuth1(consumer_key, consumer_secret, token, token_secret)
 
     def get_colors(self) -> Dict[int, str]:
-        # Get Color List: /colors  :contentReference[oaicite:5]{index=5}
         url = f"{self.base}/colors"
         r = requests.get(url, auth=self.auth, timeout=60)
         r.raise_for_status()
         j = r.json()
-        data = j.get("data") or []
-        out = {}
-        for c in data:
+        out: Dict[int, str] = {}
+        for c in (j.get("data") or []):
             cid = parse_int_any(c.get("color_id"))
             nm = (c.get("color_name") or "").strip()
             if cid is not None and nm:
@@ -254,7 +276,6 @@ class RebrickableAPI:
         self.api_key = api_key
 
     def get_colors(self) -> Dict[int, str]:
-        # /lego/colors/ documented usage :contentReference[oaicite:6]{index=6}
         url = f"{self.base}/lego/colors/"
         headers = {"Authorization": f"key {self.api_key}"}
         out: Dict[int, str] = {}
@@ -281,20 +302,20 @@ class BrickOwlAPI:
         self.api_key = api_key
 
     def color_list(self) -> Dict[int, str]:
-        # /catalog/color_list is documented in BrickOwl API docs :contentReference[oaicite:7]{index=7}
         url = f"{self.base}/catalog/color_list"
         r = requests.get(url, params={"key": self.api_key}, timeout=60)
         r.raise_for_status()
         j = r.json()
-        # Commonly: {"data": { "<id>": {...}, ... }} OR list-like. We support both.
         out: Dict[int, str] = {}
         data = j.get("data")
         if isinstance(data, dict):
             for k, v in data.items():
                 cid = parse_int_any(k)
-                nm = (v.get("name") or v.get("color_name") or "").strip() if isinstance(v, dict) else ""
+                nm = ""
+                if isinstance(v, dict):
+                    nm = (v.get("name") or v.get("color_name") or "").strip()
                 if cid is not None:
-                    out[cid] = nm or ""
+                    out[cid] = nm
         elif isinstance(data, list):
             for v in data:
                 cid = parse_int_any(v.get("color_id") or v.get("id"))
@@ -305,7 +326,7 @@ class BrickOwlAPI:
 
 
 # -----------------------------
-# Main build
+# Main
 # -----------------------------
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -315,33 +336,32 @@ def main() -> int:
     ap.add_argument("--rb-colors", required=True)
     ap.add_argument("--seed", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--audit", required=True)
     ap.add_argument("--issues", required=True)
-    ap.add_argument("--strict", action="store_true")
-    ap.add_argument("--strict-all", action="store_true", help="Falha também com WARN (modo 'perfeição total').")
-    ap.add_argument("--verify-apis", choices=["none", "colors"], default="colors",
-                    help="Verifica coerência de listas de cores via APIs (poucas chamadas).")
+    ap.add_argument("--strict", action="store_true", help="Falha apenas com ERROR.")
+    ap.add_argument("--strict-all", action="store_true", help="Falha com ERROR ou WARN (não recomendado).")
+    ap.add_argument("--verify-apis", choices=["none", "colors"], default="none",
+                    help="Verifica IDs via APIs (poucas chamadas). Não bloqueia se creds faltarem.")
     args = ap.parse_args()
 
     bl_name_to_id, bl_id_to_name, bl_id_to_rgb = load_bl_colors_xml(Path(args.bl_colors_xml))
     rb_colors = load_rb_colors(Path(args.rb_colors))
     rb_elements = load_rb_elements(Path(args.rb_elements))
-
     seed, seed_issues = load_seed(Path(args.seed), rb_colors, bl_id_to_name)
+
     issues: List[Dict[str, object]] = list(seed_issues)
 
-    # Build element_id -> bl_color_id from codes.xml
+    # element_id -> BL color_id (from codes.xml + colors.xml)
     element_to_bl: Dict[str, int] = {}
-    unknown_color_names = Counter()
+    unknown_code_colors = Counter()
 
     for element_id, color_val in iter_bl_codes(Path(args.bl_codes_xml)):
-        # color in codes.xml can be name or id; support both
         bl_id = parse_int_any(color_val)
         if bl_id is None:
-            key = norm(color_val)
-            bl_id = bl_name_to_id.get(key)
-            if bl_id is None:
-                unknown_color_names[color_val] += 1
-                continue
+            bl_id = bl_name_to_id.get(norm(color_val))
+        if bl_id is None:
+            unknown_code_colors[color_val] += 1
+            continue
 
         prev = element_to_bl.get(element_id)
         if prev is None:
@@ -353,23 +373,24 @@ def main() -> int:
                 "rb_color_id": "",
                 "name": "",
                 "details": f"Element {element_id} aparece com múltiplos BL color_id: {prev} vs {bl_id}",
-                "suggestions": "Verificar codes.xml do BrickLink.",
+                "suggestions": "Verificar inputs/bricklink/codes.xml.",
             })
 
-    if unknown_color_names:
-        top = ", ".join([f"{k}({v})" for k, v in unknown_color_names.most_common(10)])
+    if unknown_code_colors:
+        top = ", ".join([f"{k}({v})" for k, v in unknown_code_colors.most_common(10)])
         issues.append({
             "severity": "WARN",
             "issue_type": "BL_CODE_COLOR_NOT_IN_COLORSXML",
             "rb_color_id": "",
             "name": "",
-            "details": f"Nomes de cor em codes.xml não encontrados em colors.xml (top10): {top}",
-            "suggestions": "Atualizar colors.xml ou normalização de nomes.",
+            "details": f"Nomes/IDs em codes.xml não resolvidos via colors.xml (top10): {top}",
+            "suggestions": "Atualizar colors.xml ou normalização.",
         })
 
     # Crosswalk counts: rb_color_id -> Counter(bl_color_id)
     pair_counts: Dict[int, Counter] = defaultdict(Counter)
     relevant_rb: set[int] = set()
+
     for element_id, rb_color_id in rb_elements.items():
         bl_id = element_to_bl.get(element_id)
         if bl_id is None:
@@ -377,12 +398,14 @@ def main() -> int:
         pair_counts[rb_color_id][bl_id] += 1
         relevant_rb.add(rb_color_id)
 
+    # Resolve rb_color_id -> bl_color_id by dominance
     resolved_rb_to_bl: Dict[int, int] = {}
     for rb_id, c in pair_counts.items():
         if not c:
             continue
         best_bl, best_n = c.most_common(1)[0]
         total = sum(c.values())
+        # conflict if significant disagreement
         if len(c) > 1 and (best_n / total) < 0.95:
             suggestions = "; ".join([f"{bid}:{n}" for bid, n in c.most_common(5)])
             issues.append({
@@ -390,18 +413,18 @@ def main() -> int:
                 "issue_type": "RB_TO_BL_CONFLICT",
                 "rb_color_id": rb_id,
                 "name": rb_colors.get(rb_id, RBColor(rb_id, f"RB_{rb_id}", "", None, None)).name,
-                "details": f"RB color_id mapeia para múltiplos BL color_id (confiança {best_n}/{total}={best_n/total:.2%})",
-                "suggestions": f"Escolher no seed rb_color_id->{best_bl} ou outro. Candidatos: {suggestions}",
+                "details": f"RB color mapeia para múltiplos BL colors (confiança {best_n}/{total}={best_n/total:.2%})",
+                "suggestions": f"Fixar no seed. Candidatos: {suggestions}",
             })
             continue
         resolved_rb_to_bl[rb_id] = best_bl
 
-    # Apply seed overrides (authoritative)
+    # Seed overrides are authoritative
     for rb_id, s in seed.items():
         if s.bl_color_id is not None:
             resolved_rb_to_bl[rb_id] = s.bl_color_id
 
-    # Optional: fetch BrickOwl color names (single call) for bo_color_name
+    # Optional BrickOwl color list (single call) for bo_color_name + validation
     bo_id_to_name: Dict[int, str] = {}
     brickowl_key = os.environ.get("BRICKOWL_API_KEY", "").strip()
     if brickowl_key:
@@ -413,11 +436,11 @@ def main() -> int:
                 "issue_type": "BRICKOWL_COLOR_LIST_FAILED",
                 "rb_color_id": "",
                 "name": "",
-                "details": f"Falha ao obter BrickOwl color_list (ignorado): {e}",
-                "suggestions": "Verificar BRICKOWL_API_KEY / conectividade.",
+                "details": f"Falha BrickOwl color_list (ignorado): {e}",
+                "suggestions": "Verificar BRICKOWL_API_KEY/limites.",
             })
 
-    # API verification: validate that ids exist in providers (few calls)
+    # API verify (optional, low-call, does not block if creds missing)
     if args.verify_apis == "colors":
         # BrickLink
         ck = os.environ.get("BRICKLINK_CONSUMER_KEY", "").strip()
@@ -427,7 +450,6 @@ def main() -> int:
         if ck and cs and tk and ts:
             try:
                 api_bl_colors = BrickLinkAPI(ck, cs, tk, ts).get_colors()
-                # compare: every resolved bl_color_id must exist in API list
                 for rb_id, bl_id in resolved_rb_to_bl.items():
                     if bl_id not in api_bl_colors:
                         issues.append({
@@ -436,7 +458,7 @@ def main() -> int:
                             "rb_color_id": rb_id,
                             "name": rb_colors.get(rb_id, RBColor(rb_id, f"RB_{rb_id}", "", None, None)).name,
                             "details": f"BL color_id={bl_id} não existe na API BrickLink (colors).",
-                            "suggestions": "Atualizar BrickLink colors.xml e/ou corrigir seed.",
+                            "suggestions": "Atualizar colors.xml/seed.",
                         })
             except Exception as e:
                 issues.append({
@@ -444,8 +466,8 @@ def main() -> int:
                     "issue_type": "BRICKLINK_API_COLORS_FAILED",
                     "rb_color_id": "",
                     "name": "",
-                    "details": f"Falha ao obter BrickLink colors via API (ignorado): {e}",
-                    "suggestions": "Verificar credenciais OAuth/limites.",
+                    "details": f"Falha BrickLink colors via API (ignorado): {e}",
+                    "suggestions": "Verificar OAuth/limites.",
                 })
         else:
             issues.append({
@@ -453,8 +475,8 @@ def main() -> int:
                 "issue_type": "BRICKLINK_API_SKIPPED",
                 "rb_color_id": "",
                 "name": "",
-                "details": "Credenciais BrickLink OAuth não definidas; verificação BrickLink por API foi ignorada.",
-                "suggestions": "Definir secrets BRICKLINK_* no GitHub.",
+                "details": "Credenciais BrickLink OAuth ausentes; verificação por API ignorada.",
+                "suggestions": "Definir secrets BRICKLINK_*.",
             })
 
         # Rebrickable
@@ -462,15 +484,15 @@ def main() -> int:
         if rb_key:
             try:
                 api_rb_colors = RebrickableAPI(rb_key).get_colors()
-                for rb_id in rb_colors.keys():
+                for rb_id, rb in rb_colors.items():
                     if rb_id not in api_rb_colors:
                         issues.append({
                             "severity": "ERROR",
                             "issue_type": "REBRICKABLE_API_COLOR_ID_UNKNOWN",
                             "rb_color_id": rb_id,
-                            "name": rb_colors[rb_id].name,
+                            "name": rb.name,
                             "details": "RB color_id existe no ficheiro, mas não aparece na API.",
-                            "suggestions": "Confirmar versão do ficheiro colors.csv (downloads) vs API.",
+                            "suggestions": "Confirmirar versão do ficheiro colors.csv.",
                         })
             except Exception as e:
                 issues.append({
@@ -478,7 +500,7 @@ def main() -> int:
                     "issue_type": "REBRICKABLE_API_COLORS_FAILED",
                     "rb_color_id": "",
                     "name": "",
-                    "details": f"Falha ao obter Rebrickable colors via API (ignorado): {e}",
+                    "details": f"Falha Rebrickable colors via API (ignorado): {e}",
                     "suggestions": "Verificar REBRICKABLE_API_KEY/limites.",
                 })
         else:
@@ -487,12 +509,12 @@ def main() -> int:
                 "issue_type": "REBRICKABLE_API_SKIPPED",
                 "rb_color_id": "",
                 "name": "",
-                "details": "REBRICKABLE_API_KEY não definido; verificação Rebrickable por API foi ignorada.",
-                "suggestions": "Definir secret REBRICKABLE_API_KEY no GitHub.",
+                "details": "REBRICKABLE_API_KEY ausente; verificação por API ignorada.",
+                "suggestions": "Definir secret REBRICKABLE_API_KEY.",
             })
 
-        # BrickOwl (validate bo_color_id existence if provided)
-        if brickowl_key and bo_id_to_name:
+        # BrickOwl: validate provided bo_color_id if we have a list
+        if bo_id_to_name:
             for rb_id, s in seed.items():
                 if s.bo_color_id is not None and s.bo_color_id not in bo_id_to_name:
                     issues.append({
@@ -510,40 +532,44 @@ def main() -> int:
 
     for rb_id in sorted(rb_colors.keys()):
         rb = rb_colors[rb_id]
-        seed_row = seed.get(rb_id)
+        s = seed.get(rb_id)
 
         bl_id = resolved_rb_to_bl.get(rb_id)
-        bo_id = seed_row.bo_color_id if seed_row else None
+        bo_id = s.bo_color_id if s else None
         bo_name = bo_id_to_name.get(bo_id, "") if bo_id is not None else ""
-        ldraw_id = (seed_row.ldraw_color_id if seed_row and seed_row.ldraw_color_id is not None else rb.ldraw_color_id)
 
-        # Missing BL: ERROR only if it's "relevant" (seen in element crosswalk); otherwise WARN
+        ldraw_id = rb.ldraw_color_id
+        if s and s.ldraw_color_id is not None:
+            ldraw_id = s.ldraw_color_id
+
+        # Missing BL: ERROR only if RB color is relevant (seen in element crosswalk)
         if bl_id is None and rb_id in relevant_rb:
             issues.append({
                 "severity": "ERROR",
                 "issue_type": "BL_ID_MISSING_RELEVANT",
                 "rb_color_id": rb_id,
                 "name": rb.name,
-                "details": "Cor RB aparece no crosswalk por Element ID mas não tem BL color_id resolvido.",
-                "suggestions": "Adicionar override no seed (rb_color_id -> bl_color_id).",
+                "details": "Sem bl_color_id apesar de existir evidência via Element ID crosswalk.",
+                "suggestions": "Fixar no seed (rb_color_id -> bl_color_id).",
             })
         elif bl_id is None:
             issues.append({
                 "severity": "WARN",
-                "issue_type": "BL_ID_MISSING_UNUSED",
+                "issue_type": "BL_ID_MISSING_RB_ONLY",
                 "rb_color_id": rb_id,
                 "name": rb.name,
-                "details": "Sem BL color_id (não aparece no crosswalk por Element ID).",
+                "details": "Sem bl_color_id e sem evidência de convergência via Element ID (aceitável).",
                 "suggestions": "",
             })
 
+        # Missing BO: warn (for now)
         if bo_id is None:
             issues.append({
                 "severity": "WARN",
                 "issue_type": "BO_ID_MISSING",
                 "rb_color_id": rb_id,
                 "name": rb.name,
-                "details": "Sem BrickOwl color_id no seed.",
+                "details": "Sem bo_color_id (ainda não é obrigatório).",
                 "suggestions": "",
             })
 
@@ -567,13 +593,13 @@ def main() -> int:
             "bo_color_id": bo_id if bo_id is not None else "",
             "bo_color_name": bo_name,
             "ldraw_color_id": ldraw_id if ldraw_id is not None else "",
-            "seed_bl": seed_row.bl_color_id if seed_row and seed_row.bl_color_id is not None else "",
-            "seed_bo": seed_row.bo_color_id if seed_row and seed_row.bo_color_id is not None else "",
+            "seed_bl": s.bl_color_id if s and s.bl_color_id is not None else "",
+            "seed_bo": s.bo_color_id if s and s.bo_color_id is not None else "",
         })
 
     out_path = Path(args.out)
+    audit_path = Path(args.audit)
     issues_path = Path(args.issues)
-    audit_path = out_path.parent / "color_map_audit.csv"
 
     write_csv(out_path,
               ["name", "rb_color_id", "bl_color_id", "bo_color_id", "bo_color_name", "ldraw_color_id"],
