@@ -278,11 +278,35 @@ class BrickLinkAPI:
     """
     base = "https://api.bricklink.com/api/store/v1"
 
+    # BrickLink Store API expects a PATH token, not the XML single-letter ITEMTYPE.
+    # Example: /items/part/3001/colors  (NOT /items/P/3001/colors)
+    _ITEMTYPE_TO_PATH = {
+        "P": "part",
+        "PART": "part",
+        "S": "set",
+        "SET": "set",
+        "M": "minifig",
+        "MINIFIG": "minifig",
+        "G": "gear",
+        "GEAR": "gear",
+        "I": "instruction",
+        "INSTRUCTION": "instruction",
+        "O": "original_box",
+        "ORIGINAL_BOX": "original_box",
+        "C": "catalog",
+        "CATALOG": "catalog",
+        "U": "unsorted_lot",
+        "UNSORTED_LOT": "unsorted_lot",
+        "BOOK": "book",
+    }
+
     def __init__(self, consumer_key: str, consumer_secret: str, token: str, token_secret: str) -> None:
         self.auth = OAuth1(consumer_key, consumer_secret, token, token_secret)
 
     def get_known_colors(self, item_type: str, item_no: str, timeout: int = 60) -> List[int]:
-        url = f"{self.base}/items/{item_type}/{item_no}/colors"
+        t = (item_type or "P").strip().upper()
+        path_type = self._ITEMTYPE_TO_PATH.get(t, "part")
+        url = f"{self.base}/items/{path_type}/{item_no}/colors"
         r = requests.get(url, auth=self.auth, timeout=timeout)
         r.raise_for_status()
         j = r.json()
