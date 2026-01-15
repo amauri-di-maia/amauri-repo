@@ -1,6 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+Brickovery - build SQLite + CSV part-color mapping.
+
+Purpose
+-------
+Consume:
+- BrickLink codes.xml (element ids + BrickLink part ids)
+- Rebrickable elements.csv (element_id -> part_num + rb_color_id)
+- data/color_map.csv (rb_color_id -> bl_color_id + bo_color_id + ldraw_color_id)
+
+and produce:
+- data/brickovery.db  (tables: part_color_map, build_issues)
+- data/part_color_map.csv
+- data/part_color_issues.csv
+
+Design notes
+-----------
+- This build step is intentionally tolerant: it does NOT fail on natural divergence by default.
+- Use --strict if you want to fail the run when ERROR issues exist.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -39,10 +60,10 @@ def write_csv(path: Path, fieldnames: List[str], rows: List[Dict[str, object]]) 
             w.writerow({k: ("" if r.get(k) is None else r.get(k)) for k in fieldnames})
 
 
-def iter_bl_codes_codesxml(path: Path) -> Iterable[Tuple[str, str]]:
+def iter_bl_codes_codesxml(path: Path) -> Iterable[Tuple[str, str, str]]:
     """
-    Yields (bl_part_id, element_id) from BrickLink codes.xml.
-    element_id can be CODENAME or CODE depending on source.
+    Yields (bl_part_id, element_id, color_token) from BrickLink codes.xml.
+    element_id can be CODENAME or CODE depending on the source.
     """
     ctx = ET.iterparse(str(path), events=("end",))
     for _, elem in ctx:
@@ -54,8 +75,9 @@ def iter_bl_codes_codesxml(path: Path) -> Iterable[Tuple[str, str]]:
             continue
         bl_part_id = (elem.findtext("ITEMID") or "").strip()
         element_id = (elem.findtext("CODENAME") or elem.findtext("CODE") or "").strip()
+        color_token = (elem.findtext("COLOR") or "").strip()
         if bl_part_id and element_id:
-            yield bl_part_id, element_id
+            yield bl_part_id, element_id, color_token
         elem.clear()
 
 
@@ -99,7 +121,8 @@ def main() -> int:
     ap.add_argument("--db", required=True)
     ap.add_argument("--out-csv", required=True)
     ap.add_argument("--issues", required=True)
-    ap.add_argument("--strict", action="store_true")
+    ap.add_argument("--dedupe", action="store_true", help="Remove duplicados por (bl_part_id, element_id).")
+    ap.add_argument("--strict", action="store_true", help="Falha se existir qualquer issue com severity=ERROR.")
     args = ap.parse_args()
 
     rb_elements = load_rb_elements(Path(args.rb_elements))
@@ -108,14 +131,22 @@ def main() -> int:
     issues: List[Dict[str, object]] = []
     rows: List[Dict[str, object]] = []
 
-    for bl_part_id, element_id in iter_bl_codes_codesxml(Path(args.bl_codes_xml)):
+    seen = set()
+
+    for bl_part_id, element_id, color_token in iter_bl_codes_codesxml(Path(args.bl_codes_xml)):
+        if args.dedupe:
+            key = (bl_part_id, element_id)
+            if key in seen:
+                continue
+            seen.add(key)
+
         if element_id not in rb_elements:
             issues.append({
-                "severity": "ERROR",
+                "severity": "WARN",
                 "issue_type": "ELEMENT_NOT_IN_REBRICKABLE_ELEMENTS",
                 "bl_part_id": bl_part_id,
                 "element_id": element_id,
-                "details": "Element ID do BrickLink não encontrado em Rebrickable elements.csv",
+                "details": "Element ID do BrickLink não encontrado em Rebrickable elements.csv (divergência aceitável).",
             })
             continue
 
@@ -124,11 +155,11 @@ def main() -> int:
         cm = color_map.get(rb_color_id)
         if cm is None:
             issues.append({
-                "severity": "ERROR",
+                "severity": "WARN",
                 "issue_type": "RB_COLOR_NOT_IN_COLOR_MAP",
                 "bl_part_id": bl_part_id,
                 "element_id": element_id,
-                "details": f"rb_color_id={rb_color_id} não está no color_map.csv",
+                "details": f"rb_color_id={rb_color_id} não está no color_map.csv (inputs incompatíveis).",
             })
             continue
 
@@ -140,19 +171,20 @@ def main() -> int:
             "bl_color_id": cm.get("bl_color_id"),
             "bo_color_id": cm.get("bo_color_id"),
             "ldraw_color_id": cm.get("ldraw_color_id"),
-            "boid": "",  # reservado (próximo passo)
+            "boid": "",  # reservado (próximo passo: BrickOwl)
+            "codes_color_token": color_token,
         })
 
     # Write CSVs
     out_csv = Path(args.out_csv)
-    write_csv(out_csv,
-              ["bl_part_id", "element_id", "rb_part_num", "rb_color_id", "bl_color_id", "bo_color_id", "ldraw_color_id", "boid"],
-              rows)
+    write_csv(
+        out_csv,
+        ["bl_part_id", "bl_color_id", "boid", "rb_color_id", "bo_color_id", "ldraw_color_id", "element_id", "rb_part_num", "codes_color_token"],
+        rows
+    )
 
     issues_path = Path(args.issues)
-    write_csv(issues_path,
-              ["severity", "issue_type", "bl_part_id", "element_id", "details"],
-              issues)
+    write_csv(issues_path, ["severity", "issue_type", "bl_part_id", "element_id", "details"], issues)
 
     # Build DB
     db_path = Path(args.db)
@@ -163,23 +195,24 @@ def main() -> int:
     cur.execute("""
     CREATE TABLE IF NOT EXISTS part_color_map (
       bl_part_id TEXT NOT NULL,
-      element_id TEXT NOT NULL,
-      rb_part_num TEXT NOT NULL,
-      rb_color_id INTEGER NOT NULL,
       bl_color_id INTEGER,
+      boid TEXT,
+      rb_color_id INTEGER NOT NULL,
       bo_color_id INTEGER,
       ldraw_color_id INTEGER,
-      boid TEXT
+      element_id TEXT NOT NULL,
+      rb_part_num TEXT NOT NULL,
+      codes_color_token TEXT
     )
     """)
     cur.execute("DELETE FROM part_color_map")
     cur.executemany("""
       INSERT INTO part_color_map
-      (bl_part_id, element_id, rb_part_num, rb_color_id, bl_color_id, bo_color_id, ldraw_color_id, boid)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (bl_part_id, bl_color_id, boid, rb_color_id, bo_color_id, ldraw_color_id, element_id, rb_part_num, codes_color_token)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, [
-        (r["bl_part_id"], r["element_id"], r["rb_part_num"], r["rb_color_id"],
-         r["bl_color_id"], r["bo_color_id"], r["ldraw_color_id"], r["boid"])
+        (r["bl_part_id"], r["bl_color_id"], r["boid"], r["rb_color_id"],
+         r["bo_color_id"], r["ldraw_color_id"], r["element_id"], r["rb_part_num"], r["codes_color_token"])
         for r in rows
     ])
 
