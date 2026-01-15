@@ -12,7 +12,6 @@ concurrency:
   group: brickovery-rebuild
   cancel-in-progress: false
 
-jobs:
   make_colors:
     runs-on: ubuntu-latest
     steps:
@@ -38,14 +37,43 @@ jobs:
             --issues data/color_map_issues.csv \
             --strict
 
+      - name: Summarize issues (counts + head)
+        if: always()
+        run: |
+          echo "==== HEAD (first 80 lines) ===="
+          if [ -f data/color_map_issues.csv ]; then
+            head -n 80 data/color_map_issues.csv
+          else
+            echo "data/color_map_issues.csv not found"
+          fi
+          echo
+          echo "==== COUNTS by issue_type ===="
+          python - <<'PY'
+          import csv, collections, os
+          p="data/color_map_issues.csv"
+          if not os.path.exists(p):
+              print("missing", p)
+              raise SystemExit(0)
+          c=collections.Counter()
+          with open(p, newline="", encoding="utf-8") as f:
+              r=csv.DictReader(f)
+              for row in r:
+                  c[row.get("issue_type","").strip()]+=1
+          for k,v in c.most_common():
+              print(f"{k}: {v}")
+          PY
+
       - name: Upload color artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: brickovery-color-map
           path: |
             data/color_map.csv
-            data/color_map_audit.csv
             data/color_map_issues.csv
+            data/color_map_audit.csv
+            inputs/color_map_audit.csv
+          if-no-files-found: warn
 
   build_matrix:
     runs-on: ubuntu-latest
