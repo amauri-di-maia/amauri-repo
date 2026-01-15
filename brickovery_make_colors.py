@@ -45,32 +45,6 @@ import requests
 from requests_oauthlib import OAuth1
 
 
-# =========================
-# API SECRETS (via environment variables)
-#
-# Em GitHub Actions, injeta as secrets assim (exemplo):
-#
-#   REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
-#   BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
-#   BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
-#   BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
-#   BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
-#   BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
-#
-# Este script apenas le essas variaveis do ambiente.
-# =========================
-
-def _env(name: str) -> str:
-    return (os.getenv(name) or "").strip()
-
-REBRICKABLE_API_KEY = _env("REBRICKABLE_API_KEY")
-BRICKOWL_API_KEY = _env("BRICKOWL_API_KEY")
-BRICKLINK_CONSUMER_KEY = _env("BRICKLINK_CONSUMER_KEY")
-BRICKLINK_CONSUMER_SECRET = _env("BRICKLINK_CONSUMER_SECRET")
-BRICKLINK_TOKEN = _env("BRICKLINK_TOKEN")
-BRICKLINK_TOKEN_SECRET = _env("BRICKLINK_TOKEN_SECRET")
-
-
 # -----------------------------
 # Helpers
 # -----------------------------
@@ -390,89 +364,20 @@ def backoff_sleep(attempt: int) -> None:
 
 
 def get_bl_api() -> Optional[BrickLinkAPI]:
-    ck = BRICKLINK_CONSUMER_KEY
-    cs = BRICKLINK_CONSUMER_SECRET
-    tk = BRICKLINK_TOKEN
-    ts = BRICKLINK_TOKEN_SECRET
+    ck = os.environ.get("BRICKLINK_CONSUMER_KEY", "").strip()
+    cs = os.environ.get("BRICKLINK_CONSUMER_SECRET", "").strip()
+    tk = os.environ.get("BRICKLINK_TOKEN", "").strip()
+    ts = os.environ.get("BRICKLINK_TOKEN_SECRET", "").strip()
     if ck and cs and tk and ts:
         return BrickLinkAPI(ck, cs, tk, ts)
     return None
 
 
 def get_rb_api() -> Optional[RebrickableAPI]:
-    key = REBRICKABLE_API_KEY
+    key = os.environ.get("REBRICKABLE_API_KEY", "").strip()
     if key:
         return RebrickableAPI(key)
     return None
-
-
-def brickowl_key_from_env() -> Optional[str]:
-    key = BRICKOWL_API_KEY
-    return key if key else None
-
-
-def api_selftest(issues: List[Dict[str, object]], bl_api: Optional[BrickLinkAPI], rb_api: Optional[RebrickableAPI]) -> None:
-    """Smoke test às APIs (não bloqueante)."""
-    print("\n=== API SELFTEST (BrickLink / Rebrickable / BrickOwl) ===")
-
-    # BrickLink
-    if bl_api is None:
-        msg = "BrickLink OAuth: indisponível (secrets não definidos)."
-        print("WARN:", msg)
-        issues.append({"severity": "WARN", "issue_type": "API_SELFTEST_BRICKLINK_UNAVAILABLE", "rb_color_id": "", "name": "", "details": msg, "suggestions": ""})
-    else:
-        try:
-            cols = bl_api.get_known_colors("P", "3001", timeout=20)
-            msg = f"BrickLink OAuth: OK (exemplo 3001 -> {len(cols)} cores)."
-            print("OK:", msg)
-            issues.append({"severity": "INFO", "issue_type": "API_SELFTEST_BRICKLINK_OK", "rb_color_id": "", "name": "", "details": msg, "suggestions": ""})
-        except Exception as e:
-            msg = f"BrickLink OAuth: FALHA ao chamar /items/P/3001/colors: {e}"
-            print("WARN:", msg)
-            issues.append({"severity": "WARN", "issue_type": "API_SELFTEST_BRICKLINK_FAILED", "rb_color_id": "", "name": "", "details": msg, "suggestions": ""})
-
-    # Rebrickable
-    if rb_api is None:
-        msg = "Rebrickable: indisponível (REBRICKABLE_API_KEY não definido)."
-        print("WARN:", msg)
-        issues.append({"severity": "WARN", "issue_type": "API_SELFTEST_REBRICKABLE_UNAVAILABLE", "rb_color_id": "", "name": "", "details": msg, "suggestions": ""})
-    else:
-        try:
-            url = f"{rb_api.base}/lego/colors/?page_size=1"
-            r = requests.get(url, headers=rb_api.headers, timeout=20)
-            r.raise_for_status()
-            msg = "Rebrickable: OK (/lego/colors?page_size=1)."
-            print("OK:", msg)
-            issues.append({"severity": "INFO", "issue_type": "API_SELFTEST_REBRICKABLE_OK", "rb_color_id": "", "name": "", "details": msg, "suggestions": ""})
-        except Exception as e:
-            msg = f"Rebrickable: FALHA no selftest: {e}"
-            print("WARN:", msg)
-            issues.append({"severity": "WARN", "issue_type": "API_SELFTEST_REBRICKABLE_FAILED", "rb_color_id": "", "name": "", "details": msg, "suggestions": ""})
-
-    # BrickOwl
-    bo_key = brickowl_key_from_env()
-    if not bo_key:
-        msg = "BrickOwl: indisponível (BRICKOWL_API_KEY não definido)."
-        print("WARN:", msg)
-        issues.append({"severity": "WARN", "issue_type": "API_SELFTEST_BRICKOWL_UNAVAILABLE", "rb_color_id": "", "name": "", "details": msg, "suggestions": ""})
-    else:
-        try:
-            base = "https://api.brickowl.com/v1"
-            # 1) user/details
-            r1 = requests.get(f"{base}/user/details", params={"key": bo_key}, timeout=20)
-            r1.raise_for_status()
-            # 2) catalog/color_list (valida acesso ao catalog API)
-            r2 = requests.get(f"{base}/catalog/color_list", params={"key": bo_key}, timeout=20)
-            r2.raise_for_status()
-            msg = "BrickOwl: OK (/user/details + /catalog/color_list)."
-            print("OK:", msg)
-            issues.append({"severity": "INFO", "issue_type": "API_SELFTEST_BRICKOWL_OK", "rb_color_id": "", "name": "", "details": msg, "suggestions": ""})
-        except Exception as e:
-            msg = f"BrickOwl: FALHA no selftest: {e}"
-            print("WARN:", msg)
-            issues.append({"severity": "WARN", "issue_type": "API_SELFTEST_BRICKOWL_FAILED", "rb_color_id": "", "name": "", "details": msg, "suggestions": ""})
-
-    print("=== END API SELFTEST ===\n")
 
 
 def known_colors_for_part(
@@ -621,8 +526,6 @@ def main() -> int:
     ap.add_argument("--cache-json", default="data/api_cache.json")
     ap.add_argument("--max-part-checks", type=int, default=60)
 
-    ap.add_argument("--debug-apis", action="store_true", help="Executa um selftest às APIs (BrickLink/Rebrickable/BrickOwl) e imprime no log")
-
     ap.add_argument("--strict", action="store_true", help="Falha apenas com ERROR (estrutural).")
     ap.add_argument("--strict-all", action="store_true", help="Falha com ERROR+WARN (auditoria total).")
     args = ap.parse_args()
@@ -639,145 +542,6 @@ def main() -> int:
 
     bl_api = get_bl_api()
     rb_api = get_rb_api()
-
-    if args.debug_apis:
-        api_selftest(issues, bl_api, rb_api)
-
-    # -----------------------------
-    # API SELFTEST (best-effort; não bloqueia)
-    # -----------------------------
-    if args.debug_apis:
-        print("\n=== API SELFTEST (BrickLink / Rebrickable / BrickOwl) ===")
-        # BrickLink
-        if bl_api is None:
-            issues.append({
-                "severity": "WARN",
-                "issue_type": "API_SELFTEST_BRICKLINK_UNAVAILABLE",
-                "rb_color_id": "",
-                "name": "",
-                "details": "BrickLink OAuth não definido no ambiente; selftest BrickLink não executado.",
-                "suggestions": "Configurar BRICKLINK_* secrets no GitHub.",
-            })
-            print("[SELFTEST] BrickLink: UNAVAILABLE (missing OAuth env vars)")
-        else:
-            try:
-                cols = bl_api.get_known_colors("P", "3001", timeout=20)
-                issues.append({
-                    "severity": "INFO",
-                    "issue_type": "API_SELFTEST_BRICKLINK_OK",
-                    "rb_color_id": "",
-                    "name": "",
-                    "details": f"BrickLink OK. /items/P/3001/colors devolveu {len(cols)} cores.",
-                    "suggestions": "",
-                })
-                print(f"[SELFTEST] BrickLink: OK (3001 -> {len(cols)} cores)")
-            except Exception as e:
-                issues.append({
-                    "severity": "WARN",
-                    "issue_type": "API_SELFTEST_BRICKLINK_FAILED",
-                    "rb_color_id": "",
-                    "name": "",
-                    "details": f"BrickLink selftest falhou: {e}",
-                    "suggestions": "Verificar rate limits/credenciais.",
-                })
-                print(f"[SELFTEST] BrickLink: FAIL ({e})")
-
-        # Rebrickable
-        if rb_api is None:
-            issues.append({
-                "severity": "WARN",
-                "issue_type": "API_SELFTEST_REBRICKABLE_UNAVAILABLE",
-                "rb_color_id": "",
-                "name": "",
-                "details": "REBRICKABLE_API_KEY não definido no ambiente; selftest Rebrickable não executado.",
-                "suggestions": "Configurar REBRICKABLE_API_KEY no GitHub Secrets.",
-            })
-            print("[SELFTEST] Rebrickable: UNAVAILABLE (missing REBRICKABLE_API_KEY)")
-        else:
-            try:
-                url = "https://rebrickable.com/api/v3/lego/colors/?page_size=1"
-                r = requests.get(url, headers=rb_api.headers, timeout=20)
-                r.raise_for_status()
-                issues.append({
-                    "severity": "INFO",
-                    "issue_type": "API_SELFTEST_REBRICKABLE_OK",
-                    "rb_color_id": "",
-                    "name": "",
-                    "details": f"Rebrickable OK. /lego/colors?page_size=1 status={r.status_code}.",
-                    "suggestions": "",
-                })
-                print(f"[SELFTEST] Rebrickable: OK (status={r.status_code})")
-            except Exception as e:
-                issues.append({
-                    "severity": "WARN",
-                    "issue_type": "API_SELFTEST_REBRICKABLE_FAILED",
-                    "rb_color_id": "",
-                    "name": "",
-                    "details": f"Rebrickable selftest falhou: {e}",
-                    "suggestions": "Verificar credencial/rate limit.",
-                })
-                print(f"[SELFTEST] Rebrickable: FAIL ({e})")
-
-        # BrickOwl
-        bo_key = (os.getenv("BRICKOWL_API_KEY") or "").strip()
-        if not bo_key:
-            issues.append({
-                "severity": "WARN",
-                "issue_type": "API_SELFTEST_BRICKOWL_UNAVAILABLE",
-                "rb_color_id": "",
-                "name": "",
-                "details": "BRICKOWL_API_KEY não definido no ambiente; selftest BrickOwl não executado.",
-                "suggestions": "Configurar BRICKOWL_API_KEY no GitHub Secrets.",
-            })
-            print("[SELFTEST] BrickOwl: UNAVAILABLE (missing BRICKOWL_API_KEY)")
-        else:
-            try:
-                base = "https://api.brickowl.com/v1"
-                r1 = requests.get(f"{base}/user/details", params={"key": bo_key}, timeout=20)
-                r1.raise_for_status()
-                ok_catalog = True
-                try:
-                    r2 = requests.get(f"{base}/catalog/color_list", params={"key": bo_key}, timeout=20)
-                    r2.raise_for_status()
-                except Exception:
-                    ok_catalog = False
-                issues.append({
-                    "severity": "INFO" if ok_catalog else "WARN",
-                    "issue_type": "API_SELFTEST_BRICKOWL_OK" if ok_catalog else "API_SELFTEST_BRICKOWL_CATALOG_FAILED",
-                    "rb_color_id": "",
-                    "name": "",
-                    "details": "BrickOwl OK (/user/details)" + (" + catalog OK (/catalog/color_list)." if ok_catalog else "; catalog FAIL (/catalog/color_list)."),
-                    "suggestions": "Se catalog falhar, confirmar permissões da key BrickOwl.",
-                })
-                print("[SELFTEST] BrickOwl: OK (/user/details)" + (" + catalog OK" if ok_catalog else " + catalog FAIL"))
-            except Exception as e:
-                issues.append({
-                    "severity": "WARN",
-                    "issue_type": "API_SELFTEST_BRICKOWL_FAILED",
-                    "rb_color_id": "",
-                    "name": "",
-                    "details": f"BrickOwl selftest falhou: {e}",
-                    "suggestions": "Verificar credencial/permissões.",
-                })
-                print(f"[SELFTEST] BrickOwl: FAIL ({e})")
-
-        print("=== END API SELFTEST ===\n")
-
-    # -----------------------------
-    # Initial RB->BL mapping (seed authoritative, name-match fallback)
-    # This MUST exist before any conflict-resolution that may need Rebrickable fallback projection.
-    # -----------------------------
-    rb_to_bl: Dict[int, Optional[int]] = {}
-    rb_to_bl_source: Dict[int, str] = {}
-    for rb_id, rb in rb_colors.items():
-        s = seed.get(rb_id)
-        if s and s.bl_color_id is not None:
-            rb_to_bl[rb_id] = s.bl_color_id
-            rb_to_bl_source[rb_id] = "seed"
-            continue
-        m = bl_name_to_id.get(norm(rb.name))
-        rb_to_bl[rb_id] = m
-        rb_to_bl_source[rb_id] = "name" if m is not None else "none"
 
     # Parse BrickLink codes.xml into:
     # element_id -> Counter(bl_color_id)
@@ -821,7 +585,7 @@ def main() -> int:
         candidates = [bid for bid, _ in c.most_common()]
         parts = sorted(element_parts.get(element_id, set()))
         best, support, checked = resolve_bl_color_by_part_support(
-            parts, candidates, bl_api, rb_api, rb_to_bl, cache, issues, args.max_part_checks
+            parts, candidates, bl_api, rb_api, {}, cache, issues, args.max_part_checks
         )
 
         if best is not None:
@@ -842,10 +606,21 @@ def main() -> int:
                 "rb_color_id": "",
                 "name": "",
                 "details": f"Element {element_id} aparece com múltiplos BL color_id {candidates}; não foi possível resolver (parts_checked={checked}, support={support})",
-                "suggestions": "Sem resolução automática. Para fixar definitivamente, adicionar override no seed (colors_seed.csv) para o rb_color_id relevante (ou regra interna se for caso de Element específico).",
+                "suggestions": "Ignorado como determinístico; resolver apenas se afetar um caso específico no seed.",
             })
 
-    # (rb_to_bl already initialised above)
+    # Initial RB->BL mapping: seed OR name match
+    rb_to_bl: Dict[int, Optional[int]] = {}
+    rb_to_bl_source: Dict[int, str] = {}
+    for rb_id, rb in rb_colors.items():
+        s = seed.get(rb_id)
+        if s and s.bl_color_id is not None:
+            rb_to_bl[rb_id] = s.bl_color_id
+            rb_to_bl_source[rb_id] = "seed"
+            continue
+        m = bl_name_to_id.get(norm(rb.name))
+        rb_to_bl[rb_id] = m
+        rb_to_bl_source[rb_id] = "name" if m is not None else "none"
 
     # Build RB candidates from element crosswalk:
     # rb_color_id -> Counter(candidate_bl_color_id) + involved parts
