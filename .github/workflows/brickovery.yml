@@ -3,8 +3,8 @@ name: Brickovery - Rebuild DB
 on:
   workflow_dispatch:
   schedule:
-    # GitHub Actions cron é sempre UTC.
-    # Lisboa: UTC no inverno; UTC+1 no verão.
+    # GitHub Actions cron e sempre UTC.
+    # Lisboa: UTC no inverno e UTC+1 no verao.
     - cron: "15 3 * * *"  # 03:15 UTC
 
 permissions:
@@ -30,12 +30,12 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install requests requests-oauthlib; fi
 
-      - name: Validate inputs
+      - name: Preflight inputs
         run: |
           set -e
           test -f inputs/bricklink/colors.xml
@@ -44,20 +44,15 @@ jobs:
           test -f inputs/rebrickable/elements.csv
           test -f inputs/colors_seed.csv
           mkdir -p data
-          echo "✅ Inputs OK"
 
-      - name: Build color map (mandatory attempts for conflicts)
+      - name: Build color map (resolve conflicts via BL part_id -> known colors)
         env:
-          # BrickLink (optional but recommended to resolve conflicts deterministically)
           BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
           BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
           BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
           BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
-          BRICKLINK_MIN_INTERVAL: "0.15"
-
-          # Rebrickable fallback (optional)
           REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
-          REBRICKABLE_MIN_INTERVAL: "0.85"
+          BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
         run: |
           python brickovery_make_colors.py \
             --bl-colors-xml inputs/bricklink/colors.xml \
@@ -68,10 +63,9 @@ jobs:
             --out data/color_map.csv \
             --audit data/color_map_audit.csv \
             --issues data/color_map_issues.csv \
-            --seed-suggestions data/color_seed_suggestions.csv \
             --cache-json data/api_cache.json \
             --max-part-checks 60 \
-            --strict
+            --debug-apis
 
       - name: Summarize issues (severity counts + top types)
         if: always()
@@ -103,7 +97,6 @@ jobs:
             data/color_map.csv
             data/color_map_audit.csv
             data/color_map_issues.csv
-            data/color_seed_suggestions.csv
             data/api_cache.json
           if-no-files-found: warn
 
@@ -123,7 +116,7 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install requests requests-oauthlib; fi
@@ -134,16 +127,22 @@ jobs:
           name: brickovery-colors
           path: data
 
-      - name: Validate inputs
+      - name: Preflight inputs
         run: |
           set -e
           test -f data/color_map.csv
           test -f inputs/bricklink/codes.xml
           test -f inputs/rebrickable/elements.csv
           mkdir -p data
-          echo "✅ Inputs OK"
 
-      - name: Build DB + CSV
+      - name: Build DB + CSV (keeps BL parts even if RB element_id missing)
+        env:
+          BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
+          BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
+          BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
+          BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
+          REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
+          BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
         run: |
           python brickovery.py \
             --bl-codes-xml inputs/bricklink/codes.xml \
@@ -152,7 +151,9 @@ jobs:
             --db data/brickovery.db \
             --out-csv data/part_color_map.csv \
             --issues data/part_color_issues.csv \
-            --dedupe
+            --resolve-boid \
+            --boid-cache-json data/brickowl_api_cache.json \
+            --debug-apis
 
       - name: Upload build artifacts
         if: always()
@@ -163,4 +164,5 @@ jobs:
             data/brickovery.db
             data/part_color_map.csv
             data/part_color_issues.csv
+            data/brickowl_api_cache.json
           if-no-files-found: warn
