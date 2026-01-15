@@ -27,56 +27,50 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build strict color_map.csv
+      - name: Preflight inputs
+        run: |
+          set -e
+          ls -lah inputs/bricklink
+          ls -lah inputs/rebrickable
+          test -f inputs/bricklink/colors.xml
+          test -f inputs/bricklink/codes.xml
+          test -f inputs/rebrickable/colors.csv
+          test -f inputs/rebrickable/elements.csv
+          test -f inputs/colors_seed.csv
+
+      - name: Build strict color_map.csv (with API verification if secrets present)
+        env:
+          BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
+          BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
+          BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
+          BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
+          REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
+          BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
         run: |
           mkdir -p data
           python brickovery_make_colors.py \
             --bl-colors-xml inputs/bricklink/colors.xml \
+            --bl-codes-xml inputs/bricklink/codes.xml \
+            --rb-elements inputs/rebrickable/elements.csv \
             --rb-colors inputs/rebrickable/colors.csv \
             --seed inputs/colors_seed.csv \
             --out data/color_map.csv \
             --issues data/color_map_issues.csv \
+            --verify-apis colors \
             --strict
-
-      - name: Summarize issues (counts + head)
-        if: always()
-        run: |
-          echo "==== HEAD (first 80 lines) ===="
-          if [ -f data/color_map_issues.csv ]; then
-            head -n 80 data/color_map_issues.csv
-          else
-            echo "data/color_map_issues.csv not found"
-          fi
-          echo
-          echo "==== COUNTS by issue_type ===="
-          python - <<'PY'
-          import csv, collections, os
-          p="data/color_map_issues.csv"
-          if not os.path.exists(p):
-              print("missing", p)
-              raise SystemExit(0)
-          c=collections.Counter()
-          with open(p, newline="", encoding="utf-8") as f:
-              r=csv.DictReader(f)
-              for row in r:
-                  c[row.get("issue_type","").strip()]+=1
-          for k,v in c.most_common():
-              print(f"{k}: {v}")
-          PY
 
       - name: Upload color artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: brickovery-color-map
+          name: brickovery-colors
           path: |
             data/color_map.csv
-            data/color_map_issues.csv
             data/color_map_audit.csv
-            inputs/color_map_audit.csv
+            data/color_map_issues.csv
           if-no-files-found: warn
 
-  build_matrix:
+  build_db:
     runs-on: ubuntu-latest
     needs: [make_colors]
     steps:
@@ -94,27 +88,28 @@ jobs:
       - name: Download color artifacts
         uses: actions/download-artifact@v4
         with:
-          name: brickovery-color-map
+          name: brickovery-colors
           path: data
 
-      - name: Build DB + matrix (strict)
+      - name: Build DB + part_color_map (strict)
         run: |
           mkdir -p data
           python brickovery.py \
-            --db data/brickovery.db \
-            --outdir data \
-            --bl-dir inputs/bricklink \
-            --rb-dir inputs/rebrickable \
+            --bl-codes-xml inputs/bricklink/codes.xml \
+            --rb-elements inputs/rebrickable/elements.csv \
             --color-map data/color_map.csv \
+            --db data/brickovery.db \
+            --out-csv data/part_color_map.csv \
+            --issues data/part_color_issues.csv \
             --strict
 
       - name: Upload build artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: brickovery-build
           path: |
             data/brickovery.db
-            data/part_color_matrix.csv
-            data/build_report.md
-            data/matrix_issues.csv
+            data/part_color_map.csv
+            data/part_color_issues.csv
           if-no-files-found: warn
