@@ -185,7 +185,6 @@ Opal Trans-Bright Green,1060,233,207
 Opal Trans-Dark Blue,1061,232,209
 Vibrant Yellow,1062,236,211
 Pearl Copper,1063,249,227
-Fabuland Red,1064,,
 Reddish Gold,1065,235,215
 Curry,1066,161,169
 Dark Nougat,1067,225,160
@@ -206,7 +205,6 @@ Clikits Pink,1082,,
 Two-tone Copper,1083,237,233
 Two-tone Gold,1084,238,231
 Two-tone Silver,1085,239,229
-Pearl Lime,1086,,125
 Medium Brown,1088,240,213
 Warm Tan,1089,241,217
 Duplo Turquoise,1090,,
@@ -215,10 +213,6 @@ Metallic Copper,1092,250,225
 Light Lilac,1093,246,16
 Trans-Medium Purple,1094,234,107
 Trans-Black,1095,251,235
-Glitter Trans-Bright Green,1096,,
-Glitter Trans-Medium Purple,1097,,
-Glitter Trans-Green,1098,,
-Glitter Trans-Pink,1099,,
 Clikits Yellow,1100,,93
 Pearl Titanium,1103,77,119
 Reddish Orange,1136,167,241
@@ -233,3 +227,4 @@ Ochre Yellow,1145,173,255
 Warm Pink,1146,175,
 Blue Violet,1147,174,
 [No Color/Any Color],9999,0,
+
