@@ -47,12 +47,12 @@ jobs:
 
       - name: Build color map (resolve conflicts via BL part_id -> known colors)
         env:
+          REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
+          BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
           BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
           BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
           BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
           BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
-          REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
-          BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
         run: |
           python brickovery_make_colors.py \
             --bl-colors-xml inputs/bricklink/colors.xml \
@@ -137,12 +137,12 @@ jobs:
 
       - name: Build DB + CSV (keeps BL parts even if RB element_id missing)
         env:
+          REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
+          BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
           BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
           BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
           BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
           BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
-          REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
-          BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
         run: |
           python brickovery.py \
             --bl-codes-xml inputs/bricklink/codes.xml \
