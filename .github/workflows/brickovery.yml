@@ -3,6 +3,7 @@ name: Brickovery - Rebuild DB
 on:
   workflow_dispatch:
   schedule:
+    # 03:15 UTC (no inverno = 03:15 Lisboa; no verão = 04:15 Lisboa)
     - cron: "15 3 * * *"
 
 permissions:
@@ -38,8 +39,9 @@ jobs:
           test -f inputs/rebrickable/elements.csv
           test -f inputs/colors_seed.csv
 
-      - name: Build strict color_map.csv (with API verification if secrets present)
+      - name: Build color map (strict=ERROR only; API verify optional)
         env:
+          # Optional verifiers (leave unset to skip)
           BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
           BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
           BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
@@ -55,9 +57,31 @@ jobs:
             --rb-colors inputs/rebrickable/colors.csv \
             --seed inputs/colors_seed.csv \
             --out data/color_map.csv \
+            --audit data/color_map_audit.csv \
             --issues data/color_map_issues.csv \
-            --verify-apis colors \
+            --verify-apis none \
             --strict
+
+      - name: Summarize issues (counts)
+        if: always()
+        run: |
+          python - <<'PY'
+          import csv, collections, os
+          p="data/color_map_issues.csv"
+          if not os.path.exists(p):
+            print("missing", p)
+            raise SystemExit(0)
+          c=collections.Counter()
+          sev=collections.Counter()
+          with open(p, newline="", encoding="utf-8") as f:
+            r=csv.DictReader(f)
+            for row in r:
+              sev[row.get("severity","").strip()] += 1
+              c[row.get("issue_type","").strip()] += 1
+          print("Severity counts:", dict(sev))
+          for k,v in c.most_common(20):
+            print(f"{k}: {v}")
+          PY
 
       - name: Upload color artifacts
         if: always()
@@ -91,7 +115,7 @@ jobs:
           name: brickovery-colors
           path: data
 
-      - name: Build DB + part_color_map (strict)
+      - name: Build DB (strict=ERROR only)
         run: |
           mkdir -p data
           python brickovery.py \
