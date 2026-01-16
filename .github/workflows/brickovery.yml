@@ -117,7 +117,6 @@ jobs:
           echo "=== find _artifact_colors ==="
           find _artifact_colors -maxdepth 4 -type f -print | sort || true
 
-          # Locate files regardless of nesting, then copy to expected canonical paths
           COLOR_MAP="$(find _artifact_colors -type f -name 'color_map.csv' | head -n 1 || true)"
           AUDIT="$(find _artifact_colors -type f -name 'color_map_audit.csv' | head -n 1 || true)"
           ISSUES="$(find _artifact_colors -type f -name 'color_map_issues.csv' | head -n 1 || true)"
@@ -175,8 +174,7 @@ jobs:
             --issues data/part_color_issues.csv \
             --resolve-boid \
             --boid-cache-json data/brickowl_api_cache.json \
-            --debug-apis \
-            --dedupe
+            --debug-apis
 
       - name: Upload build artifacts
         if: always()
