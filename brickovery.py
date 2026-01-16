@@ -330,10 +330,13 @@ class BrickOwlAPI:
         url = "https://api.brickowl.com/v1/catalog/color_list"
         return self._get(url, {"key": self.api_key}, self.min_interval_s)
 
-    def catalog_id_lookup(self, *, id_value: str, item_type: str = "Part", id_type: str = "bl_item_no") -> List[int]:
-        """Return list of candidate BOIDs for an external id.
+    def catalog_id_lookup(self, *, id_value: str, item_type: str = "Part", id_type: str = "bl_item_no") -> List[str]:
+        """Return list of candidate BOIDs (strings) for an external id.
 
-        Docs say: GET /catalog/id_lookup?id=...&type=Part&id_type=bl_item_no
+        IMPORTANT: BrickOwl BOID is commonly formatted like "<item_id>-<color_id>" (string),
+        so we must NOT coerce to int.
+
+        Docs: GET /catalog/id_lookup?id=...&type=Part&id_type=bl_item_no
         """
         cache_key = f"id_lookup:{item_type}:{id_type}:{id_value}"
         if cache_key in self.cache:
@@ -345,33 +348,44 @@ class BrickOwlAPI:
             {"key": self.api_key, "id": id_value, "type": item_type, "id_type": id_type},
             self.min_interval_s,
         )
-        # Typical: {"data": [ {"boid": 123}, ... ] } or direct list.
+
+        # Typical: {"data": [ {"boid": "44980-38"}, ... ] } or a direct list.
         items = data.get("data") if isinstance(data, dict) else data
-        boids: List[int] = []
+        boids: List[str] = []
         if isinstance(items, list):
             for it in items:
-                try:
-                    if isinstance(it, dict) and "boid" in it:
-                        boids.append(int(it["boid"]))
-                    elif isinstance(it, (int, str)):
-                        boids.append(int(it))
-                except Exception:
+                b = None
+                if isinstance(it, dict):
+                    b = it.get("boid") or it.get("id")
+                else:
+                    b = it
+                if b is None:
                     continue
+                bs = str(b).strip()
+                if not bs or bs == "0":
+                    continue
+                boids.append(bs)
+
         boids = sorted(set(boids))
         self.cache[cache_key] = boids
         return boids
 
-    def catalog_bulk_lookup(self, boids: Sequence[int]) -> List[dict]:
-        """GET /catalog/bulk_lookup?boids=1,2,... (max 100)."""
-        boids = [int(b) for b in boids if str(b).strip()]
+
+    def catalog_bulk_lookup(self, boids: Sequence[str]) -> List[dict]:
+        """GET /catalog/bulk_lookup?boids=... (max 100).
+
+        Accepts BOIDs as strings (may contain '-') and returns list of item dicts.
+        """
+        boids = [str(b).strip() for b in boids if str(b).strip()]
         if not boids:
             return []
-        key = "bulk_lookup:" + ",".join(map(str, sorted(boids)))
+        boids = sorted(set(boids))
+        key = "bulk_lookup:" + ",".join(boids)
         if key in self.cache:
             return list(self.cache[key])
 
         url = "https://api.brickowl.com/v1/catalog/bulk_lookup"
-        data = self._get(url, {"key": self.api_key, "boids": ",".join(map(str, boids))}, self.bulk_min_interval_s)
+        data = self._get(url, {"key": self.api_key, "boids": ",".join(boids)}, self.bulk_min_interval_s)
         items = data.get("data") if isinstance(data, dict) else data
         out: List[dict] = []
         if isinstance(items, list):
@@ -382,24 +396,26 @@ class BrickOwlAPI:
         return out
 
 
+
 def resolve_boid_for_pair(
     bo_api: BrickOwlAPI,
     bl_part_id: str,
     bo_color_id: int,
     issues_add: callable,
-) -> Optional[int]:
-    """Resolve BOID for (bl_part_id, bo_color_id) using BrickOwl catalog.
+) -> Optional[str]:
+    """Resolve BOID (string) for (bl_part_id, bo_color_id) using BrickOwl catalog.
 
     Strategy:
-    1) id_lookup(bl_item_no) -> candidate boids
-    2) bulk_lookup(candidates) -> pick item where color_id matches bo_color_id
+    1) id_lookup(bl_item_no) -> candidate boids (strings)
+    2) fast-path: pick candidate that endswith f"-{bo_color_id}" when present
+    3) bulk_lookup(candidates) -> confirm by matching returned color_id
 
-    Returns boid or None.
+    Returns boid string or None.
     """
     cache_key = f"boid_resolve:{bl_part_id}-{bo_color_id}"
     if cache_key in bo_api.cache:
         v = bo_api.cache[cache_key]
-        return int(v) if v else None
+        return str(v) if v else None
 
     try:
         candidates = bo_api.catalog_id_lookup(id_value=bl_part_id, item_type="Part", id_type="bl_item_no")
@@ -409,12 +425,27 @@ def resolve_boid_for_pair(
         return None
 
     if not candidates:
-        issues_add("WARN", "BRICKOWL_ID_LOOKUP_EMPTY", f"{bl_part_id}", f"id_lookup devolveu 0 BOIDs para bl_part_id={bl_part_id}")
+        issues_add(
+            "WARN",
+            "BRICKOWL_ID_LOOKUP_EMPTY",
+            f"{bl_part_id}",
+            f"id_lookup devolveu 0 BOIDs para bl_part_id={bl_part_id}",
+        )
         bo_api.cache[cache_key] = None
         return None
 
+    # Fast-path: BrickOwl BOID is often "<item_id>-<color_id>"
+    target_suffix = f"-{int(bo_color_id)}"
+    for b in candidates:
+        try:
+            if str(b).endswith(target_suffix):
+                bo_api.cache[cache_key] = str(b)
+                return str(b)
+        except Exception:
+            continue
+
     # bulk_lookup in chunks of 100
-    chosen: Optional[int] = None
+    chosen: Optional[str] = None
     for i in range(0, len(candidates), 100):
         chunk = candidates[i : i + 100]
         try:
@@ -424,16 +455,23 @@ def resolve_boid_for_pair(
             continue
 
         for it in details:
-            # Heuristic: try common fieldnames
+            # Heuristics to read color id from item dict
             try:
-                c = it.get("color_id")
-                if c is None and "color" in it and isinstance(it["color"], dict):
-                    c = it["color"].get("id")
+                c = None
+                if isinstance(it, dict):
+                    if "color_id" in it:
+                        c = it.get("color_id")
+                    elif "color" in it and isinstance(it.get("color"), dict):
+                        c = it["color"].get("id")
                 if c is None:
                     continue
                 if int(c) == int(bo_color_id):
-                    chosen = int(it.get("boid") or it.get("id") or 0) or None
-                    if chosen:
+                    raw = it.get("boid") or it.get("id")
+                    if raw is None:
+                        continue
+                    s = str(raw).strip()
+                    if s and s != "0":
+                        chosen = s
                         break
             except Exception:
                 continue
@@ -441,39 +479,32 @@ def resolve_boid_for_pair(
             break
 
     if not chosen:
-        # fallback: pick first boid (still useful as diagnostic)
-        chosen = int(candidates[0])
+        # fallback: pick first candidate (still useful as diagnostic)
+        chosen = str(candidates[0]).strip()
         issues_add(
             "WARN",
             "BRICKOWL_COLOR_MATCH_NOT_FOUND",
             f"{bl_part_id}",
-            f"Não foi possível confirmar bo_color_id={bo_color_id} em bulk_lookup; usando boid={chosen} (primeiro candidato).",
+            f"não foi possível confirmar bo_color_id={bo_color_id}; usando 1º candidato: {chosen}",
         )
 
     bo_api.cache[cache_key] = chosen
     return chosen
 
 
-# -----------------------------
-# Rebrickable API (selftest only)
-# -----------------------------
-
-def rebrickable_selftest(timeout_s: int = 20) -> None:
-    if not REBRICKABLE_API_KEY:
-        raise RuntimeError("REBRICKABLE_API_KEY não definido")
-    url = "https://rebrickable.com/api/v3/lego/colors/"
-    r = requests.get(url, headers={"Authorization": f"key {REBRICKABLE_API_KEY}"}, params={"page_size": 1}, timeout=timeout_s)
-    r.raise_for_status()
-
-
-# -----------------------------
-# DB
-# -----------------------------
-
 def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(str(db_path))
     cur = con.cursor()
+
+    # If table exists with legacy schema (boid INTEGER), drop it so we can recreate with boid TEXT.
+    try:
+        cols = {row[1]: (row[2] or "").upper() for row in cur.execute("PRAGMA table_info(part_color_map)").fetchall()}
+        if cols and (cols.get("boid", "") != "TEXT"):
+            cur.execute("DROP TABLE IF EXISTS part_color_map")
+            con.commit()
+    except Exception:
+        pass
 
     cur.execute(
         """
@@ -485,7 +516,7 @@ def init_db(db_path: Path) -> None:
           bl_color_id INTEGER,
           bo_color_id INTEGER,
           ldraw_color_id INTEGER,
-          boid INTEGER,
+          boid TEXT,
           source TEXT,
           PRIMARY KEY (bl_part_id, element_id, bl_color_id)
         )
@@ -893,7 +924,7 @@ def main() -> int:
                     """
                     SELECT DISTINCT bl_part_id, bo_color_id
                     FROM part_color_map
-                    WHERE bo_color_id IS NOT NULL AND (boid IS NULL OR boid = 0)
+                    WHERE bo_color_id IS NOT NULL AND (boid IS NULL OR boid = '')
                     """
                 ).fetchall()
 
@@ -914,7 +945,7 @@ def main() -> int:
                         if boid:
                             cur.execute(
                                 "UPDATE part_color_map SET boid=? WHERE bl_part_id=? AND bo_color_id=?",
-                                (int(boid), str(bl_part_id), int(bo_color_id)),
+                                (str(boid), str(bl_part_id), int(bo_color_id)),
                             )
                             updated += 1
                     except Exception as e:
