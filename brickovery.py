@@ -16,7 +16,7 @@ Key behaviors (per project decisions):
     * regista WARN (ELEMENT_NOT_IN_REBRICKABLE_ELEMENTS)
     * tenta obrigatoriamente BrickLink API (known colors) pelo bl_part_id
     * insere linhas BL-only (rb_* = NULL) para não perder a peça
-- BOID é opcional (ativa com --resolve-boid) e usa BrickOwl catalog/id_lookup + catalog/bulk_lookup.
+- BOID é opcional (ativa com --resolve-boid) e usa BrickOwl catalog/id_lookup + (fallback) catalog/lookup e catalog/bulk_lookup. Opcional: validação extra via catalog/availability.
 - Debug/robustez para GitHub Actions:
     * cria ficheiros de output logo no início (evita "No files were found" quando algo falha cedo)
     * checkpoint periódico (JSON)
@@ -62,6 +62,12 @@ BRICKLINK_CONSUMER_KEY = os.getenv("BRICKLINK_CONSUMER_KEY", "").strip()
 BRICKLINK_CONSUMER_SECRET = os.getenv("BRICKLINK_CONSUMER_SECRET", "").strip()
 BRICKLINK_TOKEN = os.getenv("BRICKLINK_TOKEN", "").strip()
 BRICKLINK_TOKEN_SECRET = os.getenv("BRICKLINK_TOKEN_SECRET", "").strip()
+
+# -----------------------------
+# BrickOwl base URLs
+# -----------------------------
+BRICKOWL_CATALOG_BASE_URL = "https://api.brickowl.com/v1/catalog"
+BRICKOWL_USER_BASE_URL = "https://api.brickowl.com/v1/user"
 
 # -----------------------------
 # BrickLink itemtype normalization
@@ -323,11 +329,11 @@ class BrickOwlAPI:
         return r.json() if r.headers.get("content-type", "").startswith("application/json") else json.loads(r.text)
 
     def user_details(self) -> dict:
-        url = "https://api.brickowl.com/v1/user/details"
+        url = f"{BRICKOWL_USER_BASE_URL}/details"
         return self._get(url, {"key": self.api_key}, self.min_interval_s)
 
     def catalog_color_list(self) -> dict:
-        url = "https://api.brickowl.com/v1/catalog/color_list"
+        url = f"{BRICKOWL_CATALOG_BASE_URL}/color_list"
         return self._get(url, {"key": self.api_key}, self.min_interval_s)
 
     def catalog_id_lookup(self, *, id_value: str, item_type: str = "Part", id_type: str = "bl_item_no") -> List[str]:
@@ -342,21 +348,37 @@ class BrickOwlAPI:
         if cache_key in self.cache:
             return list(self.cache[cache_key])
 
-        url = "https://api.brickowl.com/v1/catalog/id_lookup"
+        url = f"{BRICKOWL_CATALOG_BASE_URL}/id_lookup"
         data = self._get(
             url,
             {"key": self.api_key, "id": id_value, "type": item_type, "id_type": id_type},
             self.min_interval_s,
         )
 
-        # Typical: {"data": [ {"boid": "44980-38"}, ... ] } or a direct list.
-        items = data.get("data") if isinstance(data, dict) else data
+        # BrickOwl responses vary by key / shape. Normalizamos para lista de BOIDs (strings).
+        items = None
+        if isinstance(data, dict):
+            # Most common: {"data": [...]}
+            for k in ("data", "items", "boids", "result", "results"): 
+                if k in data:
+                    items = data.get(k)
+                    break
+            # Some variants nest inside data={...}
+            if items is None and isinstance(data.get("data"), dict):
+                d = data.get("data") or {}
+                for k in ("items", "boids", "result"): 
+                    if k in d:
+                        items = d.get(k)
+                        break
+        else:
+            items = data
+
         boids: List[str] = []
         if isinstance(items, list):
             for it in items:
                 b = None
                 if isinstance(it, dict):
-                    b = it.get("boid") or it.get("id")
+                    b = it.get("boid") or it.get("id") or it.get("bo_id")
                 else:
                     b = it
                 if b is None:
@@ -364,6 +386,10 @@ class BrickOwlAPI:
                 bs = str(b).strip()
                 if not bs or bs == "0":
                     continue
+                boids.append(bs)
+        elif isinstance(items, (str, int)):
+            bs = str(items).strip()
+            if bs and bs != "0":
                 boids.append(bs)
 
         boids = sorted(set(boids))
@@ -384,7 +410,7 @@ class BrickOwlAPI:
         if key in self.cache:
             return list(self.cache[key])
 
-        url = "https://api.brickowl.com/v1/catalog/bulk_lookup"
+        url = f"{BRICKOWL_CATALOG_BASE_URL}/bulk_lookup"
         data = self._get(url, {"key": self.api_key, "boids": ",".join(boids)}, self.bulk_min_interval_s)
         items = data.get("data") if isinstance(data, dict) else data
         out: List[dict] = []
@@ -407,19 +433,61 @@ class BrickOwlAPI:
         if key in self.cache:
             return dict(self.cache[key]) if isinstance(self.cache[key], dict) else self.cache[key]
 
-        url = "https://api.brickowl.com/v1/catalog/lookup"
+        url = f"{BRICKOWL_CATALOG_BASE_URL}/lookup"
         data = self._get(url, {"key": self.api_key, "boid": b}, self.min_interval_s)
         # Cache raw response; callers decide how to interpret.
         self.cache[key] = data
         return data
 
+    def catalog_availability(self, boid: str, country: str, quantity: int = 1, store_country: str = '') -> dict:
+        """GET /catalog/availability?boid=...&country=...
+
+        Useful to validate that a BOID is accepted by the API in a realistic call-path.
+        Note: availability may legitimately return an empty list depending on market supply.
+        """
+        b = str(boid).strip()
+        if not b:
+            raise ValueError('boid vazio')
+        c = (country or '').strip().upper()
+        if len(c) != 2:
+            raise ValueError('country deve ser ISO2 (ex: PT)')
+        q = int(quantity) if int(quantity) > 0 else 1
+        key = f"availability:{b}:{c}:{q}:{store_country}"
+        if key in self.cache:
+            v = self.cache[key]
+            return dict(v) if isinstance(v, dict) else v
+        url = f"{BRICKOWL_CATALOG_BASE_URL}/availability"
+        params = {'key': self.api_key, 'boid': b, 'country': c, 'quantity': q}
+        sc = (store_country or '').strip().upper()
+        if sc:
+            params['store_country'] = sc
+        data = self._get(url, params, self.min_interval_s)
+        self.cache[key] = data
+        return data
 
 
+
+
+
+def pick_boid_base(boids: List[str]) -> str:
+    """Preferimos um BOID base (sem sufixo -<cor>) quando existir.
+
+    Se só existirem BOIDs com cor, devolve a parte antes do '-' do 1º candidato.
+    """
+    for b in boids:
+        if '-' not in str(b):
+            return str(b).strip()
+    if boids:
+        return str(boids[0]).split('-', 1)[0].strip()
+    raise ValueError('id_lookup não devolveu BOIDs para este bl_item_no.')
 def resolve_boid_for_pair(
     bo_api: BrickOwlAPI,
     bl_part_id: str,
     bo_color_id: int,
     issues_add: callable,
+    *,
+    country: str = "PT",
+    validate_availability: bool = False,
 ) -> Optional[str]:
     """Resolve BOID (string) for (bl_part_id, bo_color_id) using BrickOwl catalog.
 
@@ -452,6 +520,29 @@ def resolve_boid_for_pair(
         bo_api.cache[cache_key] = None
         return None
 
+    def _boid_looks_valid(boid: str) -> bool:
+        """Valida BOID via /catalog/lookup e, opcionalmente, /catalog/availability.
+
+        Nota: availability pode devolver vazio, isso não invalida o BOID.
+        """
+        b = str(boid).strip()
+        if not b:
+            return False
+        try:
+            resp = bo_api.catalog_lookup(b)
+            if isinstance(resp, dict) and resp.get('error'):
+                return False
+        except Exception:
+            return False
+        if validate_availability:
+            try:
+                a = bo_api.catalog_availability(b, country=country)
+                if isinstance(a, dict) and a.get('error'):
+                    return False
+            except Exception:
+                return False
+        return True
+
     # Fast-path: BrickOwl BOID is often "<item_id>-<color_id>"
     target_suffix = f"-{int(bo_color_id)}"
     for b in candidates:
@@ -462,35 +553,51 @@ def resolve_boid_for_pair(
         except Exception:
             continue
 
-    # If BrickOwl did not return the desired color explicitly, try constructing
-    # a BOID from the base item id(s) + the desired color id and validate via /catalog/lookup.
-    # This matches BrickOwl's common BOID format: "<item_id>-<color_id>".
+    # Caso o id_lookup não traga explicitamente a cor desejada, tentamos:
+    # 1) construir BOID a partir do BOID base preferido (sem '-') e validar via lookup/availability
+    # 2) (fallback) tentar outros bases extraídos dos candidatos
+    try:
+        base_pref = pick_boid_base(candidates)
+    except Exception:
+        base_pref = ''
+
+    target_suffix = f"-{int(bo_color_id)}"
+
+    if base_pref:
+        guess = f"{base_pref}{target_suffix}"
+        if _boid_looks_valid(guess):
+            bo_api.cache[cache_key] = guess
+            issues_add(
+                'INFO',
+                'BRICKOWL_BOID_GUESS_OK',
+                f"{bl_part_id}",
+                f"BOID não veio no id_lookup para bo_color_id={bo_color_id}; construído e validado via lookup: {guess}",
+            )
+            return guess
+
+    # Fallback: tentar outros bases (se o base preferido falhar)
     bases: Set[str] = set()
     for c in candidates:
         cs = str(c).strip()
         if not cs:
             continue
-        base = cs.split("-", 1)[0].strip()
+        base = cs.split('-', 1)[0].strip()
         if base:
             bases.add(base)
 
     for base in sorted(bases):
+        if base_pref and base == base_pref:
+            continue
         guess = f"{base}{target_suffix}"
-        try:
-            resp = bo_api.catalog_lookup(guess)
-            # Some BrickOwl endpoints may return an error payload with HTTP 200.
-            if isinstance(resp, dict) and resp.get("error"):
-                raise ValueError(str(resp.get("error")))
+        if _boid_looks_valid(guess):
             bo_api.cache[cache_key] = guess
             issues_add(
-                "INFO",
-                "BRICKOWL_BOID_GUESS_OK",
+                'INFO',
+                'BRICKOWL_BOID_GUESS_OK',
                 f"{bl_part_id}",
                 f"BOID não veio no id_lookup para bo_color_id={bo_color_id}; construído e validado via lookup: {guess}",
             )
             return guess
-        except Exception:
-            continue
 
     # bulk_lookup in chunks of 100
     chosen: Optional[str] = None
@@ -654,6 +761,9 @@ def main() -> int:
     ap.add_argument("--boid-min-interval", type=float, default=0.11)
     ap.add_argument("--boid-bulk-min-interval", type=float, default=0.65)
     ap.add_argument("--boid-timeout", type=int, default=30)
+
+    ap.add_argument("--boid-country", default="PT", help="ISO2 do país destino para /catalog/availability (ex: PT).")
+    ap.add_argument("--boid-validate-availability", action="store_true", help="Valida BOID também via /catalog/availability (mais lento).")
     ap.add_argument("--boid-max-pairs", type=int, default=0, help="DEBUG: limita nº de pares (part,bo_color) para resolver; 0 = sem limite")
 
     args = ap.parse_args()
@@ -989,7 +1099,14 @@ def main() -> int:
                         add_issue("WARN", "STOP_SIGNAL", "", f"Stop requested ({_STOP_REASON}) durante boid resolve.")
                         break
                     try:
-                        boid = resolve_boid_for_pair(bo_api, str(bl_part_id), int(bo_color_id), add_issue)
+                        boid = resolve_boid_for_pair(
+                            bo_api,
+                            str(bl_part_id),
+                            int(bo_color_id),
+                            add_issue,
+                            country=str(args.boid_country),
+                            validate_availability=bool(args.boid_validate_availability),
+                        )
                         if boid:
                             cur.execute(
                                 "UPDATE part_color_map SET boid=? WHERE bl_part_id=? AND bo_color_id=?",
