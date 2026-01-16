@@ -3,11 +3,8 @@ name: Brickovery - Rebuild DB
 on:
   workflow_dispatch:
   schedule:
-    # GitHub Actions cron is always UTC (Lisbon time changes with DST)
-    - cron: "15 3 * * *"
-
-permissions:
-  contents: read
+    # GitHub Actions cron is always UTC (Lisboa: UTC in winter, UTC+1 in summer)
+    - cron: "15 3 * * *"  # 03:15 UTC
 
 concurrency:
   group: brickovery-rebuild
@@ -20,16 +17,19 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
 
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install requests requests-oauthlib; fi
 
       - name: Preflight inputs
         run: |
@@ -40,8 +40,9 @@ jobs:
           test -f inputs/rebrickable/elements.csv
           test -f inputs/colors_seed.csv
           mkdir -p data
+          echo "✅ Inputs OK"
 
-      - name: Build color map (resolve conflicts via BL part_id -> known colors)
+      - name: Build color_map.csv
         env:
           REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
           BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
@@ -50,6 +51,8 @@ jobs:
           BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
           BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
         run: |
+          set -e
+          mkdir -p data
           python brickovery_make_colors.py \
             --bl-colors-xml inputs/bricklink/colors.xml \
             --bl-codes-xml inputs/bricklink/codes.xml \
@@ -60,7 +63,6 @@ jobs:
             --audit data/color_map_audit.csv \
             --issues data/color_map_issues.csv \
             --cache-json data/api_cache.json \
-            --max-part-checks 60 \
             --debug-apis \
             --strict
 
@@ -80,20 +82,22 @@ jobs:
     name: Build DB + CSV (keeps BL parts even if RB element_id missing)
     runs-on: ubuntu-latest
     needs: [make_colors]
-    if: ${{ always() }}
     timeout-minutes: 120
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
 
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install requests requests-oauthlib; fi
 
       - name: Prepare workspace
         run: |
@@ -103,15 +107,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: brickovery-colors
+          # IMPORTANT: download into repo root so we get data/color_map.csv (avoid data/data/color_map.csv)
           path: .
-          
+
       - name: Debug workspace (list files)
         run: |
-        echo "PWD=$(pwd)"
-        echo "=== ls root ==="
-        ls -la
-        echo "=== find data (maxdepth 3) ==="
-        find data -maxdepth 3 -type f -print | sort || true
+          echo "PWD=$(pwd)"
+          echo "=== ls root ==="
+          ls -la
+          echo "=== ls data ==="
+          ls -la data || true
+          echo "=== find data (maxdepth 3) ==="
+          find data -maxdepth 3 -type f -print | sort || true
 
       - name: Preflight inputs
         run: |
@@ -119,7 +126,7 @@ jobs:
           test -f inputs/bricklink/codes.xml
           test -f inputs/rebrickable/elements.csv
           test -f data/color_map.csv
-          mkdir -p data
+          echo "✅ Inputs OK"
 
       - name: Build DB + CSV
         env:
@@ -130,6 +137,8 @@ jobs:
           BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
           BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
         run: |
+          set -e
+          mkdir -p data
           python brickovery.py \
             --bl-codes-xml inputs/bricklink/codes.xml \
             --rb-elements inputs/rebrickable/elements.csv \
@@ -137,13 +146,10 @@ jobs:
             --db data/brickovery.db \
             --out-csv data/part_color_map.csv \
             --issues data/part_color_issues.csv \
+            --resolve-boid \
             --boid-cache-json data/brickowl_api_cache.json \
-            --checkpoint data/build_checkpoint.json \
-            --commit-every 5000 \
-            --progress-every 50000 \
-            --max-runtime-seconds 6600 \
             --debug-apis \
-            --resolve-boid
+            --dedupe
 
       - name: Upload build artifacts
         if: always()
