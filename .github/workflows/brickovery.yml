@@ -79,7 +79,7 @@ jobs:
           if-no-files-found: warn
 
   build_db:
-    name: Build DB + CSV (keeps BL parts even if RB element_id missing)
+    name: Build DB + CSV (resume BOID)
     runs-on: ubuntu-latest
     needs: [make_colors]
     timeout-minutes: 120
@@ -105,10 +105,16 @@ jobs:
           rm -rf _artifact_colors
           mkdir -p _artifact_colors
 
-      - name: Clean Brickovery cache/db
-        run: |
-          rm -f data/brickowl_api_cache.json
-          rm -f data/brickovery.db
+      - name: Restore Brickovery progress cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/brickovery.db*
+            data/brickowl_api_cache.json
+            data/build_checkpoint.json
+          key: brickovery-progress-${{ github.run_id }}
+          restore-keys: |
+            brickovery-progress-
 
       - name: Download color artifacts
         uses: actions/download-artifact@v4
@@ -153,13 +159,14 @@ jobs:
             fi
           }
 
+          # Mantemos estes checks porque no mode=all/build são necessários.
           check_file inputs/bricklink/codes.xml
           check_file inputs/rebrickable/elements.csv
           check_file data/color_map.csv
 
           echo "✅ Inputs OK"
 
-      - name: Build DB + CSV
+      - name: Build DB + CSV (auto-resume)
         env:
           REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
           BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
@@ -170,7 +177,21 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p data
+
+          MODE=all
+          if [ -f data/brickovery.db ]; then
+            MODE=boid
+          fi
+
+          EXTRA=""
+          if [ "${MODE}" = "all" ]; then
+            EXTRA="--debug-apis"
+          fi
+
+          echo "Running brickovery.py in mode=${MODE}"
+
           python brickovery.py \
+            --mode "${MODE}" \
             --bl-codes-xml inputs/bricklink/codes.xml \
             --rb-elements inputs/rebrickable/elements.csv \
             --color-map data/color_map.csv \
@@ -179,7 +200,10 @@ jobs:
             --issues data/part_color_issues.csv \
             --resolve-boid \
             --boid-cache-json data/brickowl_api_cache.json \
-            --debug-apis
+            --boid-min-interval 0.10 \
+            --boid-commit-every 200 \
+            --max-runtime-seconds 6600 \
+            ${EXTRA}
 
       - name: Upload build artifacts
         if: always()
