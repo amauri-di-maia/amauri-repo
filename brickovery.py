@@ -155,6 +155,27 @@ def append_error_log(path: Path, msg: str) -> None:
         f.write(msg.rstrip() + "\n")
 
 
+def persist_brickowl_cache(cache_path: Path, cache: dict) -> None:
+    """Persist BrickOwl cache to disk, filtering negative entries.
+
+    We avoid persisting:
+      - id_lookup:* entries that are an empty list (can be transient / parsing-related)
+      - boid_resolve:* entries that are falsy (None/empty)
+
+    This prevents 'sticky' failures across workflow runs.
+    """
+    filtered: dict = {}
+    for k, v in (cache or {}).items():
+        if isinstance(k, str):
+            if k.startswith('id_lookup:') and isinstance(v, list) and len(v) == 0:
+                continue
+            if k.startswith('boid_resolve:') and not v:
+                continue
+        filtered[k] = v
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps(filtered, ensure_ascii=False), encoding='utf-8')
+
+
 # -----------------------------
 # Parsing inputs
 # -----------------------------
@@ -345,8 +366,13 @@ class BrickOwlAPI:
         Docs: GET /catalog/id_lookup?id=...&type=Part&id_type=bl_item_no
         """
         cache_key = f"id_lookup:{item_type}:{id_type}:{id_value}"
+
+        # NOTE: do NOT treat cached empty lists as authoritative. They can be caused by
+        # transient errors or older parsing bugs, and would otherwise become "sticky".
         if cache_key in self.cache:
-            return list(self.cache[cache_key])
+            cached = self.cache.get(cache_key)
+            if isinstance(cached, list) and len(cached) > 0:
+                return [str(x) for x in cached]
 
         url = f"{BRICKOWL_CATALOG_BASE_URL}/id_lookup"
         data = self._get(
@@ -355,23 +381,35 @@ class BrickOwlAPI:
             self.min_interval_s,
         )
 
-        # BrickOwl responses vary by key / shape. Normalizamos para lista de BOIDs (strings).
-        items = None
-        if isinstance(data, dict):
-            # Most common: {"data": [...]}
-            for k in ("data", "items", "boids", "result", "results"): 
-                if k in data:
-                    items = data.get(k)
-                    break
-            # Some variants nest inside data={...}
-            if items is None and isinstance(data.get("data"), dict):
-                d = data.get("data") or {}
-                for k in ("items", "boids", "result"): 
-                    if k in d:
-                        items = d.get(k)
-                        break
-        else:
-            items = data
+        def _extract_list(obj):
+            # BrickOwl responses can vary:
+            #  - ["123-1", "123-2"]
+            #  - {"data": [ ... ]}
+            #  - {"data": {"boids": [ ... ]}}
+            #  - {"boids": [ ... ]}
+            if isinstance(obj, list):
+                return obj
+            if isinstance(obj, dict):
+                # direct list fields
+                for k in ("items", "boids", "result", "results", "data"):
+                    v = obj.get(k)
+                    if isinstance(v, list):
+                        return v
+                # nested dict fields (common: data={...})
+                for k in ("data", "result", "results"):
+                    v = obj.get(k)
+                    if isinstance(v, dict):
+                        for kk in ("items", "boids", "result", "results", "data"):
+                            vv = v.get(kk)
+                            if isinstance(vv, list):
+                                return vv
+                # as a last resort, first list-valued entry
+                for v in obj.values():
+                    if isinstance(v, list):
+                        return v
+            return []
+
+        items = _extract_list(data)
 
         boids: List[str] = []
         if isinstance(items, list):
@@ -387,13 +425,15 @@ class BrickOwlAPI:
                 if not bs or bs == "0":
                     continue
                 boids.append(bs)
-        elif isinstance(items, (str, int)):
-            bs = str(items).strip()
-            if bs and bs != "0":
-                boids.append(bs)
 
         boids = sorted(set(boids))
-        self.cache[cache_key] = boids
+
+        # Cache positive results only; keep empty in-memory during this run but avoid sticky persistence.
+        if boids:
+            self.cache[cache_key] = boids
+        else:
+            self.cache[cache_key] = []
+
         return boids
 
 
@@ -480,6 +520,7 @@ def pick_boid_base(boids: List[str]) -> str:
     if boids:
         return str(boids[0]).split('-', 1)[0].strip()
     raise ValueError('id_lookup não devolveu BOIDs para este bl_item_no.')
+
 def resolve_boid_for_pair(
     bo_api: BrickOwlAPI,
     bl_part_id: str,
@@ -489,165 +530,111 @@ def resolve_boid_for_pair(
     country: str = "PT",
     validate_availability: bool = False,
 ) -> Optional[str]:
-    """Resolve BOID (string) for (bl_part_id, bo_color_id) using BrickOwl catalog.
+    """Resolve BOID for (bl_part_id, bo_color_id) using the user's validated approach.
 
-    Strategy:
-    1) id_lookup(bl_item_no) -> candidate boids (strings)
-    2) fast-path: pick candidate that endswith f"-{bo_color_id}" when present
-    3) bulk_lookup(candidates) -> confirm by matching returned color_id
+    Approach (aligned with the standalone test snippet):
+      1) catalog/id_lookup using BrickLink item number (id_type=bl_item_no)
+      2) pick a base BOID (prefer one without "-<color>")
+      3) if id_lookup already returns the target "-<bo_color_id>", use that
+         else, build: f"{base}-{bo_color_id}"
+      4) validate via catalog/lookup (and optionally catalog/availability)
 
-    Returns boid string or None.
+    Returns a BOID string if validated; otherwise None.
+
+    Notes:
+    - We DO NOT persist negative caches (None/empty) to avoid sticky failures.
+    - We DO NOT fall back to "first candidate" (that creates wrong BOIDs).
     """
-    cache_key = f"boid_resolve:{bl_part_id}-{bo_color_id}"
-    if cache_key in bo_api.cache:
-        v = bo_api.cache[cache_key]
-        return str(v) if v else None
+
+    # Only use positive cache hits.
+    cache_key = f"boid_resolve:{bl_part_id}-{int(bo_color_id)}"
+    cached = bo_api.cache.get(cache_key)
+    if cached:
+        return str(cached)
 
     try:
-        candidates = bo_api.catalog_id_lookup(id_value=bl_part_id, item_type="Part", id_type="bl_item_no")
+        boids = bo_api.catalog_id_lookup(id_value=str(bl_part_id), item_type="Part", id_type="bl_item_no")
     except Exception as e:
         issues_add("WARN", "BRICKOWL_ID_LOOKUP_FAILED", f"{bl_part_id}", f"id_lookup falhou: {e}")
-        bo_api.cache[cache_key] = None
         return None
 
-    if not candidates:
-        issues_add(
-            "WARN",
-            "BRICKOWL_ID_LOOKUP_EMPTY",
-            f"{bl_part_id}",
-            f"id_lookup devolveu 0 BOIDs para bl_part_id={bl_part_id}",
-        )
-        bo_api.cache[cache_key] = None
+    if not boids:
+        issues_add("WARN", "BRICKOWL_ID_LOOKUP_EMPTY", f"{bl_part_id}", f"id_lookup devolveu 0 BOIDs para bl_item_no={bl_part_id}")
         return None
 
-    def _boid_looks_valid(boid: str) -> bool:
-        """Valida BOID via /catalog/lookup e, opcionalmente, /catalog/availability.
+    # Prefer base without hyphen when available.
+    try:
+        base = pick_boid_base(boids)
+    except Exception as e:
+        issues_add("WARN", "BRICKOWL_ID_LOOKUP_NO_BASE", f"{bl_part_id}", f"Não foi possível escolher base a partir do id_lookup: {e}")
+        return None
 
-        Nota: availability pode devolver vazio, isso não invalida o BOID.
-        """
+    target_suffix = f"-{int(bo_color_id)}"
+
+    # Use an exact candidate if id_lookup already returned it.
+    boid_color = next((b for b in boids if str(b).endswith(target_suffix)), f"{base}{target_suffix}")
+
+    def _valid(boid: str) -> bool:
         b = str(boid).strip()
         if not b:
             return False
         try:
-            resp = bo_api.catalog_lookup(b)
-            if isinstance(resp, dict) and resp.get('error'):
+            info = bo_api.catalog_lookup(b)
+            if isinstance(info, dict) and info.get("error"):
                 return False
         except Exception:
             return False
         if validate_availability:
             try:
                 a = bo_api.catalog_availability(b, country=country)
-                if isinstance(a, dict) and a.get('error'):
+                if isinstance(a, dict) and a.get("error"):
                     return False
             except Exception:
                 return False
         return True
 
-    # Fast-path: BrickOwl BOID is often "<item_id>-<color_id>"
-    target_suffix = f"-{int(bo_color_id)}"
-    for b in candidates:
-        try:
-            if str(b).endswith(target_suffix):
-                bo_api.cache[cache_key] = str(b)
-                return str(b)
-        except Exception:
-            continue
+    # Validate the chosen BOID.
+    if _valid(boid_color):
+        bo_api.cache[cache_key] = str(boid_color)
+        return str(boid_color)
 
-    # Caso o id_lookup não traga explicitamente a cor desejada, tentamos:
-    # 1) construir BOID a partir do BOID base preferido (sem '-') e validar via lookup/availability
-    # 2) (fallback) tentar outros bases extraídos dos candidatos
-    try:
-        base_pref = pick_boid_base(candidates)
-    except Exception:
-        base_pref = ''
-
-    target_suffix = f"-{int(bo_color_id)}"
-
-    if base_pref:
-        guess = f"{base_pref}{target_suffix}"
-        if _boid_looks_valid(guess):
-            bo_api.cache[cache_key] = guess
-            issues_add(
-                'INFO',
-                'BRICKOWL_BOID_GUESS_OK',
-                f"{bl_part_id}",
-                f"BOID não veio no id_lookup para bo_color_id={bo_color_id}; construído e validado via lookup: {guess}",
-            )
-            return guess
-
-    # Fallback: tentar outros bases (se o base preferido falhar)
-    bases: Set[str] = set()
-    for c in candidates:
+    # If validation failed, try alternative bases from other candidates (rare, but helps edge cases).
+    bases = []
+    seen = set()
+    for c in boids:
         cs = str(c).strip()
         if not cs:
             continue
-        base = cs.split('-', 1)[0].strip()
-        if base:
-            bases.add(base)
+        b = cs.split('-', 1)[0].strip()
+        if b and b not in seen:
+            seen.add(b)
+            bases.append(b)
 
-    for base in sorted(bases):
-        if base_pref and base == base_pref:
+    for b in bases:
+        alt = f"{b}{target_suffix}"
+        if alt == str(boid_color):
             continue
-        guess = f"{base}{target_suffix}"
-        if _boid_looks_valid(guess):
-            bo_api.cache[cache_key] = guess
+        if _valid(alt):
+            bo_api.cache[cache_key] = str(alt)
             issues_add(
-                'INFO',
-                'BRICKOWL_BOID_GUESS_OK',
+                "INFO",
+                "BRICKOWL_BOID_ALT_BASE_OK",
                 f"{bl_part_id}",
-                f"BOID não veio no id_lookup para bo_color_id={bo_color_id}; construído e validado via lookup: {guess}",
+                f"BOID validado após trocar base (bo_color_id={bo_color_id}): {alt}",
             )
-            return guess
+            return str(alt)
 
-    # bulk_lookup in chunks of 100
-    chosen: Optional[str] = None
-    for i in range(0, len(candidates), 100):
-        chunk = candidates[i : i + 100]
-        try:
-            details = bo_api.catalog_bulk_lookup(chunk)
-        except Exception as e:
-            issues_add("WARN", "BRICKOWL_BULK_LOOKUP_FAILED", f"{bl_part_id}", f"bulk_lookup falhou: {e}")
-            continue
-
-        for it in details:
-            # Heuristics to read color id from item dict
-            try:
-                c = None
-                if isinstance(it, dict):
-                    if "color_id" in it:
-                        c = it.get("color_id")
-                    elif "color" in it and isinstance(it.get("color"), dict):
-                        c = it["color"].get("id")
-                if c is None:
-                    continue
-                if int(c) == int(bo_color_id):
-                    raw = it.get("boid") or it.get("id")
-                    if raw is None:
-                        continue
-                    s = str(raw).strip()
-                    if s and s != "0":
-                        chosen = s
-                        break
-            except Exception:
-                continue
-        if chosen:
-            break
-
-    if not chosen:
-        # fallback: pick first candidate (still useful as diagnostic)
-        chosen = str(candidates[0]).strip()
-        issues_add(
-            "WARN",
-            "BRICKOWL_COLOR_MATCH_NOT_FOUND",
-            f"{bl_part_id}",
-            f"não foi possível confirmar bo_color_id={bo_color_id}; usando 1º candidato: {chosen}",
-        )
-
-    bo_api.cache[cache_key] = chosen
-    return chosen
+    issues_add(
+        "WARN",
+        "BRICKOWL_BOID_LOOKUP_INVALID",
+        f"{bl_part_id}|{bo_color_id}",
+        f"Construído/selecionado '{boid_color}' mas catalog/lookup não validou (boids candidatos: {len(boids)}).",
+    )
+    return None
 
 
 def init_db(db_path: Path) -> None:
+
     db_path.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(str(db_path))
     cur = con.cursor()
@@ -1080,9 +1067,9 @@ def main() -> int:
                 # pairs where bo_color_id is known and boid missing
                 rows_pairs = cur.execute(
                     """
-                    SELECT DISTINCT bl_part_id, bo_color_id
+                    SELECT DISTINCT bl_part_id, bl_color_id, bo_color_id
                     FROM part_color_map
-                    WHERE bo_color_id IS NOT NULL AND (boid IS NULL OR boid = '')
+                    WHERE (boid IS NULL OR boid = '')
                     """
                 ).fetchall()
 
@@ -1093,35 +1080,83 @@ def main() -> int:
                 add_issue("INFO", "BRICKOWL_BOID_RESOLVE_START", "", f"A resolver BOID para {total_pairs} pares (part,bo_color).")
                 con.commit()
 
+
                 updated = 0
-                for idx, (bl_part_id, bo_color_id) in enumerate(rows_pairs, start=1):
+                for idx, (bl_part_id, bl_color_id, bo_color_id_db) in enumerate(rows_pairs, start=1):
                     if _STOP:
                         add_issue("WARN", "STOP_SIGNAL", "", f"Stop requested ({_STOP_REASON}) durante boid resolve.")
                         break
+
+                    # Prefer mapping BL->BO at resolve time (authoritative). If missing, fall back to DB.
+                    blc: Optional[int] = None
+                    try:
+                        blc = int(bl_color_id) if bl_color_id is not None else None
+                    except Exception:
+                        blc = None
+
+                    bo_color_id_eff: Optional[int] = None
+                    if blc is not None:
+                        mapped = bl_to_bo.get(blc)
+                        if mapped is not None:
+                            bo_color_id_eff = int(mapped)
+                            try:
+                                if bo_color_id_db is not None and int(bo_color_id_db) != int(mapped):
+                                    add_issue(
+                                        "WARN",
+                                        "BO_COLOR_ID_MISMATCH_FIXUP",
+                                        f"{bl_part_id}|{blc}",
+                                        f"bo_color_id DB={bo_color_id_db} difere do mapeamento BL->BO={mapped}; a usar mapeamento.",
+                                    )
+                            except Exception:
+                                pass
+
+                    if bo_color_id_eff is None and bo_color_id_db is not None:
+                        try:
+                            bo_color_id_eff = int(bo_color_id_db)
+                        except Exception:
+                            bo_color_id_eff = None
+
+                    if bo_color_id_eff is None:
+                        add_issue(
+                            "WARN",
+                            "BRICKOWL_BO_COLOR_ID_MISSING",
+                            str(bl_part_id),
+                            "Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).",
+                        )
+                        continue
+
                     try:
                         boid = resolve_boid_for_pair(
                             bo_api,
                             str(bl_part_id),
-                            int(bo_color_id),
+                            int(bo_color_id_eff),
                             add_issue,
                             country=str(args.boid_country),
                             validate_availability=bool(args.boid_validate_availability),
                         )
-                        if boid:
-                            cur.execute(
-                                "UPDATE part_color_map SET boid=? WHERE bl_part_id=? AND bo_color_id=?",
-                                (str(boid), str(bl_part_id), int(bo_color_id)),
-                            )
-                            updated += 1
                     except Exception as e:
-                        add_issue("WARN", "BRICKOWL_BOID_RESOLVE_FAILED", f"{bl_part_id}|{bo_color_id}", f"Falha boid resolve: {e}")
+                        add_issue("WARN", "BRICKOWL_BOID_RESOLVE_FAILED", f"{bl_part_id}|{bo_color_id_eff}", f"Falha boid resolve: {e}")
+                        boid = None
+
+                    if boid:
+                        if blc is not None:
+                            cur.execute(
+                                "UPDATE part_color_map SET boid=?, bo_color_id=? WHERE bl_part_id=? AND bl_color_id=?",
+                                (str(boid), int(bo_color_id_eff), str(bl_part_id), int(blc)),
+                            )
+                        else:
+                            # If BL color is unknown, update by (part, bo_color_id)
+                            cur.execute(
+                                "UPDATE part_color_map SET boid=?, bo_color_id=? WHERE bl_part_id=? AND bo_color_id=? AND (bl_color_id IS NULL)",
+                                (str(boid), int(bo_color_id_eff), str(bl_part_id), int(bo_color_id_eff)),
+                            )
+                        updated += 1
 
                     if idx % 200 == 0:
                         con.commit()
-                        # persist cache
+                        # persist cache (filtered)
                         try:
-                            cache_path.parent.mkdir(parents=True, exist_ok=True)
-                            cache_path.write_text(json.dumps(bo_api.cache, ensure_ascii=False), encoding="utf-8")
+                            persist_brickowl_cache(cache_path, bo_api.cache)
                         except Exception:
                             pass
                         elapsed = now_s() - t0
@@ -1141,7 +1176,7 @@ def main() -> int:
                 con.commit()
                 try:
                     cache_path.parent.mkdir(parents=True, exist_ok=True)
-                    cache_path.write_text(json.dumps(bo_api.cache, ensure_ascii=False), encoding="utf-8")
+                    persist_brickowl_cache(cache_path, bo_api.cache)
                 except Exception:
                     pass
                 add_issue("INFO", "BRICKOWL_BOID_RESOLVE_DONE", "", f"BOID resolve terminado. Updated_pairs={updated}/{total_pairs}.")
