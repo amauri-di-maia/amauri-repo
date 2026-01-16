@@ -395,6 +395,24 @@ class BrickOwlAPI:
         self.cache[key] = out
         return out
 
+    def catalog_lookup(self, boid: str) -> dict:
+        """GET /catalog/lookup?boid=... and return parsed JSON.
+
+        Primarily used to validate a *guessed* BOID constructed from a base item id + "-<color_id>".
+        """
+        b = str(boid).strip()
+        if not b:
+            raise ValueError("boid vazio")
+        key = f"lookup:{b}"
+        if key in self.cache:
+            return dict(self.cache[key]) if isinstance(self.cache[key], dict) else self.cache[key]
+
+        url = "https://api.brickowl.com/v1/catalog/lookup"
+        data = self._get(url, {"key": self.api_key, "boid": b}, self.min_interval_s)
+        # Cache raw response; callers decide how to interpret.
+        self.cache[key] = data
+        return data
+
 
 
 def resolve_boid_for_pair(
@@ -441,6 +459,36 @@ def resolve_boid_for_pair(
             if str(b).endswith(target_suffix):
                 bo_api.cache[cache_key] = str(b)
                 return str(b)
+        except Exception:
+            continue
+
+    # If BrickOwl did not return the desired color explicitly, try constructing
+    # a BOID from the base item id(s) + the desired color id and validate via /catalog/lookup.
+    # This matches BrickOwl's common BOID format: "<item_id>-<color_id>".
+    bases: Set[str] = set()
+    for c in candidates:
+        cs = str(c).strip()
+        if not cs:
+            continue
+        base = cs.split("-", 1)[0].strip()
+        if base:
+            bases.add(base)
+
+    for base in sorted(bases):
+        guess = f"{base}{target_suffix}"
+        try:
+            resp = bo_api.catalog_lookup(guess)
+            # Some BrickOwl endpoints may return an error payload with HTTP 200.
+            if isinstance(resp, dict) and resp.get("error"):
+                raise ValueError(str(resp.get("error")))
+            bo_api.cache[cache_key] = guess
+            issues_add(
+                "INFO",
+                "BRICKOWL_BOID_GUESS_OK",
+                f"{bl_part_id}",
+                f"BOID não veio no id_lookup para bo_color_id={bo_color_id}; construído e validado via lookup: {guess}",
+            )
+            return guess
         except Exception:
             continue
 
