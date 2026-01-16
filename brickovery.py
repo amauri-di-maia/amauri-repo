@@ -343,11 +343,61 @@ class BrickOwlAPI:
             time.sleep(min_interval - dt)
 
     def _get(self, url: str, params: dict, min_interval: float) -> dict:
-        self._sleep(min_interval)
-        self._last_call = time.time()
-        r = requests.get(url, params=params, timeout=self.timeout_s)
-        r.raise_for_status()
-        return r.json() if r.headers.get("content-type", "").startswith("application/json") else json.loads(r.text)
+        """HTTP GET with basic throttling + retries.
+
+        Retries are applied for:
+          - 429 (rate limiting)
+          - 5xx (temporary server errors)
+
+        Backoff uses a small exponential wait with a cap, to avoid turning transient throttling
+        into hard failures.
+        """
+        max_attempts = 5
+        base_sleep = 0.6
+        max_sleep = 8.0
+
+        last_exc = None
+        for attempt in range(1, max_attempts + 1):
+            self._sleep(min_interval)
+            self._last_call = time.time()
+            try:
+                r = requests.get(url, params=params, timeout=self.timeout_s)
+
+                # Retryable conditions
+                if r.status_code == 429 or (500 <= r.status_code <= 599):
+                    # Try to respect Retry-After when present
+                    ra = r.headers.get('Retry-After')
+                    sleep_s = None
+                    if ra:
+                        try:
+                            sleep_s = float(ra)
+                        except Exception:
+                            sleep_s = None
+                    if sleep_s is None:
+                        sleep_s = min(max_sleep, base_sleep * (2 ** (attempt - 1)))
+                    time.sleep(sleep_s)
+                    continue
+
+                r.raise_for_status()
+
+                ct = (r.headers.get('content-type') or '').lower()
+                if ct.startswith('application/json'):
+                    return r.json()
+
+                # Some endpoints reply with JSON but without proper content-type.
+                return json.loads(r.text)
+
+            except Exception as e:
+                last_exc = e
+                # Final attempt: raise
+                if attempt >= max_attempts:
+                    raise
+                time.sleep(min(max_sleep, base_sleep * (2 ** (attempt - 1))))
+
+        # Defensive (should not reach)
+        if last_exc:
+            raise last_exc
+        raise RuntimeError('BrickOwl request failed')
 
     def user_details(self) -> dict:
         url = f"{BRICKOWL_USER_BASE_URL}/details"
@@ -725,29 +775,46 @@ def api_selftests(add_issue) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
 
-    ap.add_argument("--bl-codes-xml", required=True)
-    ap.add_argument("--rb-elements", required=True)
-    ap.add_argument("--color-map", required=True)
+    ap.add_argument(
+        "--mode",
+        choices=["all", "build", "boid", "export"],
+        default="all",
+        help=(
+            "Modo de execução: "
+            "all=build + (opcional) boid + export; "
+            "build=build + export; "
+            "boid=resolve boid + export (sem rebuild); "
+            "export=apenas exportar CSVs a partir da DB."
+        ),
+    )
 
+    # Inputs (apenas obrigatórios no modo build/all)
+    ap.add_argument("--bl-codes-xml")
+    ap.add_argument("--rb-elements")
+    ap.add_argument("--color-map")
+
+    # Outputs / DB (sempre necessários)
     ap.add_argument("--db", required=True)
     ap.add_argument("--out-csv", required=True)
     ap.add_argument("--issues", required=True)
 
     ap.add_argument("--strict", action="store_true", help="Falha apenas se existirem ERROR (WARN não falha).")
-
     ap.add_argument("--debug-apis", action="store_true")
 
+    # Build tuning
     ap.add_argument("--progress-every", type=int, default=50000)
     ap.add_argument("--commit-every", type=int, default=5000)
     ap.add_argument("--checkpoint", default="data/build_checkpoint.json")
     ap.add_argument("--max-items", type=int, default=0, help="DEBUG: processa no máximo N ITEMS (0 = sem limite).")
     ap.add_argument("--max-runtime-seconds", type=int, default=0, help="Se definido, termina de forma limpa após este tempo (evita timeout).")
 
+    # BOID tuning
     ap.add_argument("--resolve-boid", action="store_true")
     ap.add_argument("--boid-cache-json", default="data/brickowl_api_cache.json")
     ap.add_argument("--boid-min-interval", type=float, default=0.11)
     ap.add_argument("--boid-bulk-min-interval", type=float, default=0.65)
     ap.add_argument("--boid-timeout", type=int, default=30)
+    ap.add_argument("--boid-commit-every", type=int, default=200, help="Commit/flush do progresso BOID a cada N pares.")
 
     ap.add_argument("--boid-country", default="PT", help="ISO2 do país destino para /catalog/availability (ex: PT).")
     ap.add_argument("--boid-validate-availability", action="store_true", help="Valida BOID também via /catalog/availability (mais lento).")
@@ -755,11 +822,17 @@ def main() -> int:
 
     args = ap.parse_args()
 
+    mode = (args.mode or "all").strip().lower()
+    if mode not in ("all", "build", "boid", "export"):
+        print(f"::error::Modo inválido: {mode}")
+        return 2
+
     t0 = now_s()
 
-    codes_xml = Path(args.bl_codes_xml)
-    rb_elements_csv = Path(args.rb_elements)
-    color_map_csv = Path(args.color_map)
+    # Paths
+    codes_xml = Path(args.bl_codes_xml) if args.bl_codes_xml else None
+    rb_elements_csv = Path(args.rb_elements) if args.rb_elements else None
+    color_map_csv = Path(args.color_map) if args.color_map else None
 
     db_path = Path(args.db)
     out_csv = Path(args.out_csv)
@@ -800,11 +873,6 @@ def main() -> int:
     con = sqlite3.connect(str(db_path))
     cur = con.cursor()
 
-    # Clear tables (fresh rebuild)
-    cur.execute("DELETE FROM part_color_map")
-    cur.execute("DELETE FROM build_issues")
-    con.commit()
-
     def add_issue(sev: str, typ: str, key: str, details: str) -> None:
         cur.execute(
             "INSERT INTO build_issues(ts,severity,issue_type,key,details) VALUES (?,?,?,?,?)",
@@ -815,173 +883,235 @@ def main() -> int:
         payload = {"ts": int(time.time()), "phase": phase, **extra}
         save_json(checkpoint_path, payload)
 
+    def require_file(pth: Path, label: str) -> None:
+        if not pth.exists():
+            raise FileNotFoundError(f"Ficheiro obrigatório em falta ({label}): {pth}")
+
+    # Fresh rebuild only in build/all
+    if mode in ("all", "build"):
+        cur.execute("DELETE FROM part_color_map")
+        cur.execute("DELETE FROM build_issues")
+        con.commit()
+
+    # Load color map early if present (used in BOID fixups too)
+    color_map = None
+    bl_to_bo = {}
+    bl_to_ldraw = {}
+
     try:
+        if mode in ("all", "build"):
+            if codes_xml is None:
+                raise FileNotFoundError("--bl-codes-xml é obrigatório em mode=all/build")
+            if rb_elements_csv is None:
+                raise FileNotFoundError("--rb-elements é obrigatório em mode=all/build")
+            if color_map_csv is None:
+                raise FileNotFoundError("--color-map é obrigatório em mode=all/build")
+            require_file(codes_xml, "--bl-codes-xml")
+            require_file(rb_elements_csv, "--rb-elements")
+            require_file(color_map_csv, "--color-map")
+
+        # color-map é altamente recomendado no boid mode; se faltar, continuamos usando bo_color_id da DB
+        if color_map_csv and color_map_csv.exists():
+            color_map = load_color_map(color_map_csv)
+            bl_to_bo, bl_to_ldraw, rev_issues = build_bl_reverse_maps(color_map)
+            for sev, typ, key, details in rev_issues:
+                add_issue(sev, typ, key, details)
+            con.commit()
+        else:
+            if mode in ("all", "build"):
+                # já teria sido exigido
+                pass
+            elif mode in ("boid",):
+                add_issue("WARN", "COLOR_MAP_MISSING", "", "--color-map não fornecido; fixups BL->BO não serão aplicados.")
+                con.commit()
+
         if args.debug_apis:
             api_selftests(add_issue)
             con.commit()
 
-        print("[LOAD] inputs...")
-        print(f"  codes.xml: {codes_xml} ({codes_xml.stat().st_size/1024/1024:,.1f} MiB)")
-        print(f"  elements.csv: {rb_elements_csv} ({rb_elements_csv.stat().st_size/1024/1024:,.1f} MiB)")
-        print(f"  color_map.csv: {color_map_csv} ({color_map_csv.stat().st_size/1024/1024:,.1f} MiB)")
-
-        rb_elements = load_rb_elements(rb_elements_csv)
-        color_map = load_color_map(color_map_csv)
-        bl_to_bo, bl_to_ldraw, rev_issues = build_bl_reverse_maps(color_map)
-        for sev, typ, key, details in rev_issues:
-            add_issue(sev, typ, key, details)
-        con.commit()
-
-        oauth = bricklink_oauth_from_env()
-        bl_colors_cache: Dict[str, List[int]] = {}
-        fallback_done_parts: Set[str] = set()
-
-        inserted = 0
         processed = 0
+        inserted = 0
         missing_elements = 0
         missing_color_map = 0
         fallback_parts = 0
 
-        batch_rows: List[Tuple] = []
+        checkpoint("start", {"mode": mode, "processed": 0, "inserted": 0, "stop": False})
 
-        checkpoint("start", {"processed": 0, "inserted": 0, "stop": False})
+        # -----------------
+        # BUILD (DB rebuild)
+        # -----------------
+        if mode in ("all", "build"):
+            assert codes_xml is not None
+            assert rb_elements_csv is not None
+            assert color_map_csv is not None
 
-        for itemtype, bl_part_id, element_id in iter_codes_xml(codes_xml):
-            if _STOP:
-                add_issue("WARN", "STOP_SIGNAL", "", f"Stop requested ({_STOP_REASON}).")
-                break
-            processed += 1
+            print("[LOAD] inputs...")
+            print(f"  codes.xml: {codes_xml} ({codes_xml.stat().st_size/1024/1024:,.1f} MiB)")
+            print(f"  elements.csv: {rb_elements_csv} ({rb_elements_csv.stat().st_size/1024/1024:,.1f} MiB)")
+            print(f"  color_map.csv: {color_map_csv} ({color_map_csv.stat().st_size/1024/1024:,.1f} MiB)")
 
-            if args.max_items and processed > args.max_items:
-                add_issue("WARN", "DEBUG_MAX_ITEMS", "", f"Paragem por --max-items={args.max_items}.")
-                break
+            rb_elements = load_rb_elements(rb_elements_csv)
+            if color_map is None:
+                color_map = load_color_map(color_map_csv)
 
-            if args.max_runtime_seconds and (now_s() - t0) > float(args.max_runtime_seconds):
-                add_issue("WARN", "EARLY_EXIT_MAX_RUNTIME", "", f"Paragem limpa por --max-runtime-seconds={args.max_runtime_seconds}.")
-                break
+            oauth = bricklink_oauth_from_env()
+            bl_colors_cache: Dict[str, List[int]] = {}
+            fallback_done_parts: Set[str] = set()
 
-            # We only care about parts for this DB
-            if (itemtype or "P").strip().upper() not in ("P", "PART"):
-                continue
+            batch_rows: List[Tuple] = []
 
-            if element_id in rb_elements:
-                rb_part_num, rb_color_id = rb_elements[element_id]
-                cm = color_map.get(rb_color_id)
-                if not cm:
-                    missing_color_map += 1
-                    add_issue(
-                        "ERROR",
-                        "RB_COLOR_ID_NOT_IN_COLOR_MAP",
-                        f"rb_color_id={rb_color_id}",
-                        f"rb_color_id={rb_color_id} não existe em color_map.csv (element_id={element_id}, bl_part_id={bl_part_id}).",
-                    )
-                    # Still insert row with NULL mapping to keep traceability
-                    bl_color_id = None
-                    bo_color_id = None
-                    ld = None
-                else:
-                    bl_color_id = cm.get("bl_color_id")
-                    bo_color_id = cm.get("bo_color_id")
-                    ld = cm.get("ldraw_color_id")
+            for itemtype, bl_part_id, element_id in iter_codes_xml(codes_xml):
+                if _STOP:
+                    add_issue("WARN", "STOP_SIGNAL", "", f"Stop requested ({_STOP_REASON}).")
+                    break
+                processed += 1
 
-                batch_rows.append(
-                    (
-                        bl_part_id,
-                        element_id,
-                        rb_part_num,
-                        rb_color_id,
-                        bl_color_id,
-                        bo_color_id,
-                        ld,
-                        None,
-                        "codes.xml+elements.csv",
-                    )
-                )
-                inserted += 1
+                if args.max_items and processed > args.max_items:
+                    add_issue("WARN", "DEBUG_MAX_ITEMS", "", f"Paragem por --max-items={args.max_items}.")
+                    break
 
-            else:
-                # element missing in RB -> mandatory BrickLink fallback by part_id
-                missing_elements += 1
-                add_issue(
-                    "WARN",
-                    "ELEMENT_NOT_IN_REBRICKABLE_ELEMENTS",
-                    f"{bl_part_id}|{element_id}",
-                    "Element ID do BrickLink não encontrado em Rebrickable elements.csv (divergência aceitável). Fallback BrickLink API por bl_part_id.",
-                )
+                if args.max_runtime_seconds and (now_s() - t0) > float(args.max_runtime_seconds):
+                    add_issue("WARN", "EARLY_EXIT_MAX_RUNTIME", "", f"Paragem limpa por --max-runtime-seconds={args.max_runtime_seconds}.")
+                    break
 
-                if bl_part_id in fallback_done_parts:
+                # We only care about parts for this DB
+                if (itemtype or "P").strip().upper() not in ("P", "PART"):
                     continue
-                fallback_done_parts.add(bl_part_id)
-                fallback_parts += 1
 
-                if oauth is None:
+                if element_id in rb_elements:
+                    rb_part_num, rb_color_id = rb_elements[element_id]
+                    cm = (color_map or {}).get(rb_color_id)
+                    if not cm:
+                        missing_color_map += 1
+                        add_issue(
+                            "ERROR",
+                            "RB_COLOR_ID_NOT_IN_COLOR_MAP",
+                            f"rb_color_id={rb_color_id}",
+                            f"rb_color_id={rb_color_id} não existe em color_map.csv (element_id={element_id}, bl_part_id={bl_part_id}).",
+                        )
+                        # Still insert row with NULL mapping to keep traceability
+                        bl_color_id = None
+                        bo_color_id = None
+                        ldraw_color_id = None
+                    else:
+                        bl_color_id = cm.get("bl_color_id")
+                        bo_color_id = cm.get("bo_color_id")
+                        ldraw_color_id = cm.get("ldraw_color_id")
+
+                    batch_rows.append(
+                        (
+                            str(bl_part_id),
+                            str(element_id),
+                            str(rb_part_num),
+                            int(rb_color_id) if rb_color_id is not None else None,
+                            int(bl_color_id) if bl_color_id is not None else None,
+                            int(bo_color_id) if bo_color_id is not None else None,
+                            int(ldraw_color_id) if ldraw_color_id is not None else None,
+                            None,
+                            "RB",
+                        )
+                    )
+                    inserted += 1
+
+                else:
+                    # element_id missing from Rebrickable elements.csv -> mandatory BrickLink fallback
+                    missing_elements += 1
                     add_issue(
                         "WARN",
-                        "BRICKLINK_API_UNAVAILABLE",
-                        bl_part_id,
-                        "BrickLink OAuth não configurado; incluído sem cores (BL-only).",
+                        "ELEMENT_NOT_IN_REBRICKABLE_ELEMENTS",
+                        str(element_id),
+                        f"element_id={element_id} não existe em elements.csv (bl_part_id={bl_part_id}).",
                     )
-                    batch_rows.append((bl_part_id, "", None, None, None, None, None, None, "bricklink_fallback_no_oauth"))
-                    inserted += 1
-                else:
-                    try:
-                        if bl_part_id not in bl_colors_cache:
-                            bl_colors_cache[bl_part_id] = bricklink_list_item_colors(bl_part_id, oauth, item_type="P", timeout_s=30)
-                        colors = bl_colors_cache[bl_part_id]
-                        if not colors:
+
+                    if str(bl_part_id) not in fallback_done_parts:
+                        fallback_done_parts.add(str(bl_part_id))
+                        if oauth is None:
                             add_issue(
                                 "WARN",
-                                "BRICKLINK_PART_COLORS_EMPTY",
-                                bl_part_id,
-                                "BrickLink devolveu 0 cores; incluído sem cores (BL-only).",
+                                "BRICKLINK_API_UNAVAILABLE",
+                                str(bl_part_id),
+                                "BrickLink OAuth não configurado; não é possível obter cores conhecidas para fallback.",
                             )
-                            batch_rows.append((bl_part_id, "", None, None, None, None, None, None, "bricklink_fallback_empty"))
-                            inserted += 1
                         else:
-                            for bl_color_id in colors:
-                                bo_color_id = bl_to_bo.get(bl_color_id)
-                                ld = bl_to_ldraw.get(bl_color_id)
-                                batch_rows.append(
-                                    (
-                                        bl_part_id,
-                                        "",
-                                        None,
-                                        None,
-                                        int(bl_color_id),
-                                        int(bo_color_id) if bo_color_id is not None else None,
-                                        int(ld) if ld is not None else None,
-                                        None,
-                                        "bricklink_fallback_colors",
-                                    )
-                                )
-                                inserted += 1
-                            add_issue(
-                                "INFO",
-                                "ELEMENT_MISSING_RB_INCLUDED_USING_BRICKLINK_COLORS",
-                                bl_part_id,
-                                f"Incluído via BrickLink colors: {len(colors)} cores.",
-                            )
-                    except requests.HTTPError as e:
-                        add_issue(
-                            "WARN",
-                            "BRICKLINK_PART_COLORS_LOOKUP_FAILED",
-                            bl_part_id,
-                            f"BrickLink known colors falhou (HTTP {e.response.status_code if e.response else '??'}).",
-                        )
-                        batch_rows.append((bl_part_id, "", None, None, None, None, None, None, "bricklink_fallback_failed"))
-                        inserted += 1
-                    except Exception as e:
-                        add_issue(
-                            "WARN",
-                            "BRICKLINK_PART_COLORS_LOOKUP_FAILED",
-                            bl_part_id,
-                            f"BrickLink known colors falhou: {e}",
-                        )
-                        batch_rows.append((bl_part_id, "", None, None, None, None, None, None, "bricklink_fallback_failed"))
-                        inserted += 1
+                            try:
+                                if str(bl_part_id) in bl_colors_cache:
+                                    known_colors = bl_colors_cache[str(bl_part_id)]
+                                else:
+                                    known_colors = bricklink_list_item_colors(str(bl_part_id), oauth, item_type="P", timeout_s=30)
+                                    bl_colors_cache[str(bl_part_id)] = known_colors
 
-            # flush batches
-            if len(batch_rows) >= int(args.commit_every):
+                                if not known_colors:
+                                    add_issue(
+                                        "WARN",
+                                        "BRICKLINK_NO_COLORS",
+                                        str(bl_part_id),
+                                        f"BrickLink devolveu 0 cores para bl_part_id={bl_part_id}.",
+                                    )
+                                else:
+                                    fallback_parts += 1
+
+                                    for blc in known_colors:
+                                        bo_c = bl_to_bo.get(int(blc))
+                                        ld_c = bl_to_ldraw.get(int(blc))
+                                        batch_rows.append(
+                                            (
+                                                str(bl_part_id),
+                                                str(element_id),
+                                                None,
+                                                None,
+                                                int(blc),
+                                                int(bo_c) if bo_c is not None else None,
+                                                int(ld_c) if ld_c is not None else None,
+                                                None,
+                                                "BL_FALLBACK",
+                                            )
+                                        )
+                                        inserted += 1
+
+                            except Exception as e:
+                                add_issue(
+                                    "WARN",
+                                    "BRICKLINK_FALLBACK_FAILED",
+                                    str(bl_part_id),
+                                    f"BrickLink fallback falhou para bl_part_id={bl_part_id}: {e}",
+                                )
+
+                # flush batch
+                if len(batch_rows) >= int(args.commit_every):
+                    cur.executemany(
+                        """
+                        INSERT OR REPLACE INTO part_color_map(
+                          bl_part_id, element_id, rb_part_num, rb_color_id,
+                          bl_color_id, bo_color_id, ldraw_color_id, boid, source
+                        ) VALUES (?,?,?,?,?,?,?,?,?)
+                        """,
+                        batch_rows,
+                    )
+                    con.commit()
+                    batch_rows.clear()
+
+                if processed % int(args.progress_every) == 0:
+                    elapsed = now_s() - t0
+                    rate = processed / elapsed if elapsed > 0 else 0
+                    print(
+                        f"[PROGRESS] processed={processed:,} inserted={inserted:,} missing_elements={missing_elements:,} "
+                        f"fallback_parts={fallback_parts:,} missing_color_map={missing_color_map:,} rate={rate:,.1f}/s elapsed={elapsed:,.0f}s"
+                    )
+                    checkpoint(
+                        "build",
+                        {
+                            "mode": mode,
+                            "processed": processed,
+                            "inserted": inserted,
+                            "missing_elements": missing_elements,
+                            "fallback_parts": fallback_parts,
+                            "missing_color_map": missing_color_map,
+                            "elapsed_sec": int(elapsed),
+                        },
+                    )
+
+            # flush remaining
+            if batch_rows:
                 cur.executemany(
                     """
                     INSERT OR REPLACE INTO part_color_map(
@@ -994,57 +1124,36 @@ def main() -> int:
                 con.commit()
                 batch_rows.clear()
 
-            if args.progress_every and (processed % int(args.progress_every) == 0):
-                elapsed = now_s() - t0
-                rate = processed / elapsed if elapsed > 0 else 0.0
-                print(
-                    f"[PROGRESS] processed={processed:,} inserted={inserted:,} missing_elements={missing_elements:,} fallback_parts={fallback_parts:,} missing_color_map={missing_color_map:,} rate={rate:,.1f}/s elapsed={elapsed:,.0f}s"
-                )
-                checkpoint(
-                    "build",
-                    {
-                        "processed": processed,
-                        "inserted": inserted,
-                        "missing_elements": missing_elements,
-                        "fallback_parts": fallback_parts,
-                        "missing_color_map": missing_color_map,
-                        "elapsed_sec": int(elapsed),
-                    },
-                )
-
-        # flush remaining
-        if batch_rows:
-            cur.executemany(
-                """
-                INSERT OR REPLACE INTO part_color_map(
-                  bl_part_id, element_id, rb_part_num, rb_color_id,
-                  bl_color_id, bo_color_id, ldraw_color_id, boid, source
-                ) VALUES (?,?,?,?,?,?,?,?,?)
-                """,
-                batch_rows,
+            checkpoint(
+                "built",
+                {
+                    "mode": mode,
+                    "processed": processed,
+                    "inserted": inserted,
+                    "missing_elements": missing_elements,
+                    "fallback_parts": fallback_parts,
+                    "missing_color_map": missing_color_map,
+                    "elapsed_sec": int(now_s() - t0),
+                    "stop": bool(_STOP),
+                    "stop_reason": _STOP_REASON,
+                },
             )
-            con.commit()
-            batch_rows.clear()
-
-        checkpoint(
-            "built",
-            {
-                "processed": processed,
-                "inserted": inserted,
-                "missing_elements": missing_elements,
-                "fallback_parts": fallback_parts,
-                "missing_color_map": missing_color_map,
-                "elapsed_sec": int(now_s() - t0),
-                "stop": bool(_STOP),
-                "stop_reason": _STOP_REASON,
-            },
-        )
 
         # -----------------
-        # BOID resolution
+        # BOID resolution (resume)
         # -----------------
-        if args.resolve_boid:
-            if not BRICKOWL_API_KEY:
+        do_boid = bool(args.resolve_boid) and mode in ("all", "boid")
+        if do_boid:
+            # avoid starting BOID if we're already beyond max-runtime
+            if args.max_runtime_seconds and (now_s() - t0) > float(args.max_runtime_seconds):
+                add_issue(
+                    "WARN",
+                    "SKIP_BOID_MAX_RUNTIME",
+                    "",
+                    f"A saltar BOID resolve porque já excedeu --max-runtime-seconds={args.max_runtime_seconds}.",
+                )
+                con.commit()
+            elif not BRICKOWL_API_KEY:
                 add_issue("WARN", "BRICKOWL_API_UNAVAILABLE", "", "BRICKOWL_API_KEY não definido; a coluna boid ficará vazia.")
                 con.commit()
             else:
@@ -1064,7 +1173,6 @@ def main() -> int:
                     cache=cache,
                 )
 
-                # pairs where bo_color_id is known and boid missing
                 rows_pairs = cur.execute(
                     """
                     SELECT DISTINCT bl_part_id, bl_color_id, bo_color_id
@@ -1080,22 +1188,32 @@ def main() -> int:
                 add_issue("INFO", "BRICKOWL_BOID_RESOLVE_START", "", f"A resolver BOID para {total_pairs} pares (part,bo_color).")
                 con.commit()
 
-
                 updated = 0
+                commit_every = max(1, int(args.boid_commit_every))
+
                 for idx, (bl_part_id, bl_color_id, bo_color_id_db) in enumerate(rows_pairs, start=1):
                     if _STOP:
                         add_issue("WARN", "STOP_SIGNAL", "", f"Stop requested ({_STOP_REASON}) durante boid resolve.")
                         break
 
+                    if args.max_runtime_seconds and (now_s() - t0) > float(args.max_runtime_seconds):
+                        add_issue(
+                            "WARN",
+                            "EARLY_EXIT_MAX_RUNTIME",
+                            "",
+                            f"Paragem limpa por --max-runtime-seconds={args.max_runtime_seconds} durante boid resolve.",
+                        )
+                        break
+
                     # Prefer mapping BL->BO at resolve time (authoritative). If missing, fall back to DB.
-                    blc: Optional[int] = None
+                    blc = None
                     try:
                         blc = int(bl_color_id) if bl_color_id is not None else None
                     except Exception:
                         blc = None
 
-                    bo_color_id_eff: Optional[int] = None
-                    if blc is not None:
+                    bo_color_id_eff = None
+                    if blc is not None and bl_to_bo:
                         mapped = bl_to_bo.get(blc)
                         if mapped is not None:
                             bo_color_id_eff = int(mapped)
@@ -1145,16 +1263,14 @@ def main() -> int:
                                 (str(boid), int(bo_color_id_eff), str(bl_part_id), int(blc)),
                             )
                         else:
-                            # If BL color is unknown, update by (part, bo_color_id)
                             cur.execute(
                                 "UPDATE part_color_map SET boid=?, bo_color_id=? WHERE bl_part_id=? AND bo_color_id=? AND (bl_color_id IS NULL)",
                                 (str(boid), int(bo_color_id_eff), str(bl_part_id), int(bo_color_id_eff)),
                             )
                         updated += 1
 
-                    if idx % 200 == 0:
+                    if idx % commit_every == 0:
                         con.commit()
-                        # persist cache (filtered)
                         try:
                             persist_brickowl_cache(cache_path, bo_api.cache)
                         except Exception:
@@ -1164,8 +1280,7 @@ def main() -> int:
                         checkpoint(
                             "boid",
                             {
-                                "processed": processed,
-                                "inserted": inserted,
+                                "mode": mode,
                                 "boid_pairs_total": total_pairs,
                                 "boid_pairs_done": idx,
                                 "boid_pairs_updated": updated,
@@ -1175,7 +1290,6 @@ def main() -> int:
 
                 con.commit()
                 try:
-                    cache_path.parent.mkdir(parents=True, exist_ok=True)
                     persist_brickowl_cache(cache_path, bo_api.cache)
                 except Exception:
                     pass
@@ -1185,40 +1299,40 @@ def main() -> int:
         # -----------------
         # Export CSVs
         # -----------------
-        print("[EXPORT] part_color_map.csv...")
-        with out_csv.open("w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
-            w.writerow(["bl_part_id", "element_id", "rb_part_num", "rb_color_id", "bl_color_id", "bo_color_id", "ldraw_color_id", "boid", "source"])
-            for row in cur.execute(
-                """
-                SELECT bl_part_id, element_id, rb_part_num, rb_color_id, bl_color_id, bo_color_id, ldraw_color_id, boid, source
-                FROM part_color_map
-                ORDER BY bl_part_id, element_id, bl_color_id
-                """
-            ):
-                w.writerow(row)
+        if mode in ("all", "build", "boid", "export"):
+            print("[EXPORT] part_color_map.csv...")
+            with out_csv.open("w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["bl_part_id", "element_id", "rb_part_num", "rb_color_id", "bl_color_id", "bo_color_id", "ldraw_color_id", "boid", "source"])
+                for row in cur.execute(
+                    """
+                    SELECT bl_part_id, element_id, rb_part_num, rb_color_id, bl_color_id, bo_color_id, ldraw_color_id, boid, source
+                    FROM part_color_map
+                    ORDER BY bl_part_id, element_id, bl_color_id
+                    """
+                ):
+                    w.writerow(row)
 
-        print("[EXPORT] part_color_issues.csv...")
-        with issues_csv.open("w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
-            w.writerow(["severity", "issue_type", "key", "details"])
-            for row in cur.execute(
-                "SELECT severity, issue_type, key, details FROM build_issues ORDER BY id"
-            ):
-                w.writerow(row)
+            print("[EXPORT] part_color_issues.csv...")
+            with issues_csv.open("w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["severity", "issue_type", "key", "details"])
+                for row in cur.execute("SELECT severity, issue_type, key, details FROM build_issues ORDER BY id"):
+                    w.writerow(row)
 
-        con.commit()
+            con.commit()
 
         # Summary
         n_err = cur.execute("SELECT COUNT(1) FROM build_issues WHERE severity='ERROR'").fetchone()[0]
         n_warn = cur.execute("SELECT COUNT(1) FROM build_issues WHERE severity='WARN'").fetchone()[0]
         n_rows = cur.execute("SELECT COUNT(1) FROM part_color_map").fetchone()[0]
         elapsed = now_s() - t0
-        print(f"✅ DB rows={n_rows:,} | issues ERR={n_err} WARN={n_warn} | elapsed={elapsed:,.1f}s")
+        print(f"✅ mode={mode} | DB rows={n_rows:,} | issues ERR={n_err} WARN={n_warn} | elapsed={elapsed:,.1f}s")
 
         checkpoint(
             "done",
             {
+                "mode": mode,
                 "processed": processed,
                 "inserted": inserted,
                 "rows_db": n_rows,
@@ -1240,7 +1354,7 @@ def main() -> int:
             con.commit()
         except Exception:
             pass
-        checkpoint("crash", {"error": str(e)})
+        checkpoint("crash", {"mode": mode, "error": str(e)})
         return 1
 
     finally:
