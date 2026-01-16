@@ -105,6 +105,11 @@ jobs:
           rm -rf _artifact_colors
           mkdir -p _artifact_colors
 
+      - name: Clean Brickovery cache/db
+        run: |
+          rm -f data/brickowl_api_cache.json
+          rm -f data/brickovery.db
+
       - name: Download color artifacts
         uses: actions/download-artifact@v4
         with:
