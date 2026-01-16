@@ -396,7 +396,7 @@ def resolve_boid_for_pair(
 
     Returns boid or None.
     """
-    cache_key = f"boid_resolve:{bl_part_id}:{bo_color_id}"
+    cache_key = f"boid_resolve:{bl_part_id}-{bo_color_id}"
     if cache_key in bo_api.cache:
         v = bo_api.cache[cache_key]
         return int(v) if v else None
