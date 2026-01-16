@@ -104,6 +104,14 @@ jobs:
         with:
           name: brickovery-colors
           path: .
+          
+      - name: Debug workspace (list files)
+        run: |
+        echo "PWD=$(pwd)"
+        echo "=== ls root ==="
+        ls -la
+        echo "=== find data (maxdepth 3) ==="
+        find data -maxdepth 3 -type f -print | sort || true
 
       - name: Preflight inputs
         run: |
