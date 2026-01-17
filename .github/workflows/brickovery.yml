@@ -1,0 +1,220 @@
+name: Brickovery - Rebuild DB
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub Actions cron is always UTC (Lisboa: UTC in winter, UTC+1 in summer)
+    - cron: "15 3 * * *"  # 03:15 UTC
+
+concurrency:
+  group: brickovery-rebuild
+  cancel-in-progress: false
+
+jobs:
+  make_colors:
+    name: Make colors (RB->BL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install requests requests-oauthlib; fi
+
+      - name: Preflight inputs
+        run: |
+          set -euo pipefail
+          test -f inputs/bricklink/colors.xml
+          test -f inputs/bricklink/codes.xml
+          test -f inputs/rebrickable/colors.csv
+          test -f inputs/rebrickable/elements.csv
+          test -f inputs/colors_seed.csv
+          mkdir -p Data
+          echo "✅ Inputs OK"
+
+      - name: Build color_map.csv
+        env:
+          REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
+          BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
+          BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
+          BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
+          BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
+          BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          mkdir -p Data
+          python brickovery_make_colors.py \
+            --bl-colors-xml inputs/bricklink/colors.xml \
+            --bl-codes-xml inputs/bricklink/codes.xml \
+            --rb-elements inputs/rebrickable/elements.csv \
+            --rb-colors inputs/rebrickable/colors.csv \
+            --seed inputs/colors_seed.csv \
+            --out Data/color_map.csv \
+            --audit Data/color_map_audit.csv \
+            --issues Data/color_map_issues.csv \
+            --cache-json Data/api_cache.json \
+            --debug-apis \
+            --strict
+
+      - name: Upload color artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brickovery-colors
+          path: |
+            Data/color_map.csv
+            Data/color_map_audit.csv
+            Data/color_map_issues.csv
+            Data/api_cache.json
+          if-no-files-found: warn
+
+  build_db:
+    name: Build DB + CSV (resume BOID)
+    runs-on: ubuntu-latest
+    needs: [make_colors]
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install requests requests-oauthlib; fi
+
+      - name: Prepare workspace
+        run: |
+          mkdir -p Data
+          rm -rf _artifact_colors
+          mkdir -p _artifact_colors
+
+      - name: Restore Brickovery progress cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            Data/brickovery.db*
+            Data/brickowl_api_cache.json
+            Data/build_checkpoint.json
+          key: brickovery-progress-${{ github.run_id }}
+          restore-keys: |
+            brickovery-progress-
+
+      - name: Download color artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: brickovery-colors
+          path: _artifact_colors
+
+      - name: Materialize color_map into Data/
+        run: |
+          set -euo pipefail
+          echo "=== find _artifact_colors ==="
+          find _artifact_colors -maxdepth 4 -type f -print | sort || true
+
+          COLOR_MAP="$(find _artifact_colors -type f -name 'color_map.csv' | head -n 1 || true)"
+          AUDIT="$(find _artifact_colors -type f -name 'color_map_audit.csv' | head -n 1 || true)"
+          ISSUES="$(find _artifact_colors -type f -name 'color_map_issues.csv' | head -n 1 || true)"
+          CACHE="$(find _artifact_colors -type f -name 'api_cache.json' | head -n 1 || true)"
+
+          if [ -z "${COLOR_MAP}" ]; then
+            echo "::error::Artifact brickovery-colors não contém color_map.csv (ou não foi encontrado)."
+            exit 1
+          fi
+
+          cp -f "${COLOR_MAP}" Data/color_map.csv
+          [ -n "${AUDIT}" ] && cp -f "${AUDIT}" Data/color_map_audit.csv || true
+          [ -n "${ISSUES}" ] && cp -f "${ISSUES}" Data/color_map_issues.csv || true
+          [ -n "${CACHE}" ] && cp -f "${CACHE}" Data/api_cache.json || true
+
+          echo "=== ls data ==="
+          ls -la Data || true
+
+      - name: Preflight inputs (with clear errors)
+        run: |
+          set -euo pipefail
+          check_file () {
+            local f="$1"
+            if [ ! -f "$f" ]; then
+              echo "::error file=$f::Ficheiro obrigatório em falta: $f"
+              echo "Directory listing for $(dirname "$f"):"
+              ls -la "$(dirname "$f")" || true
+              exit 1
+            fi
+          }
+
+          # Mantemos estes checks porque no mode=all/build são necessários.
+          check_file inputs/bricklink/codes.xml
+          check_file inputs/rebrickable/elements.csv
+          check_file Data/color_map.csv
+
+          echo "✅ Inputs OK"
+
+      - name: Build DB + CSV (auto-resume)
+        env:
+          REBRICKABLE_API_KEY: ${{ secrets.REBRICKABLE_API_KEY }}
+          BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
+          BRICKLINK_CONSUMER_KEY: ${{ secrets.BRICKLINK_CONSUMER_KEY }}
+          BRICKLINK_CONSUMER_SECRET: ${{ secrets.BRICKLINK_CONSUMER_SECRET }}
+          BRICKLINK_TOKEN: ${{ secrets.BRICKLINK_TOKEN }}
+          BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          mkdir -p Data
+
+          MODE=all
+          if [ -f Data/brickovery.db ]; then
+            MODE=boid
+          fi
+
+          EXTRA=""
+          if [ "${MODE}" = "all" ]; then
+            EXTRA="--debug-apis"
+          fi
+
+          echo "Running brickovery.py in mode=${MODE}"
+
+          python brickovery.py \
+            --mode "${MODE}" \
+            --bl-codes-xml inputs/bricklink/codes.xml \
+            --rb-elements inputs/rebrickable/elements.csv \
+            --color-map Data/color_map.csv \
+            --db Data/brickovery.db \
+            --out-csv Data/part_color_map.csv \
+            --issues Data/part_color_issues.csv \
+            --resolve-boid \
+            --boid-cache-json Data/brickowl_api_cache.json \
+            --boid-min-interval 0.10 \
+            --boid-commit-every 200 \
+            --max-runtime-seconds 1800 \
+            ${EXTRA}
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brickovery-build
+          path: |
+            Data/brickovery.db
+            Data/part_color_map.csv
+            Data/part_color_issues.csv
+            Data/brickowl_api_cache.json
+            Data/build_checkpoint.json
+            Data/brickovery_build_error.log
+          if-no-files-found: warn
