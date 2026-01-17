@@ -202,7 +202,7 @@ jobs:
             --boid-cache-json data/brickowl_api_cache.json \
             --boid-min-interval 0.10 \
             --boid-commit-every 200 \
-            --max-runtime-seconds 6600 \
+            --max-runtime-seconds 21500 \
             ${EXTRA}
 
       - name: Upload build artifacts
