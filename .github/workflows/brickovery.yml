@@ -82,7 +82,7 @@ jobs:
     name: Build DB + CSV (resume BOID)
     runs-on: ubuntu-latest
     needs: [make_colors]
-    timeout-minutes: 120
+    timeout-minutes: 360
 
     steps:
       - name: Checkout
