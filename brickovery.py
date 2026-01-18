@@ -149,6 +149,17 @@ def touch_with_header_csv(path: Path, header: Sequence[str]) -> None:
         w.writerow(list(header))
 
 
+
+def write_header_csv_overwrite(path: Path, header: Sequence[str]) -> None:
+    """Create/truncate a CSV and write header.
+
+    Used to ensure per-run artifacts are not contaminated by previous runs when a run ends early.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(list(header))
+
 def append_error_log(path: Path, msg: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as f:
@@ -241,7 +252,10 @@ def load_color_map(color_map_csv: Path) -> Dict[int, Dict[str, Optional[int]]]:
                 if v == "":
                     return None
                 try:
-                    return int(v)
+                    iv = int(v)
+                    if iv == 0:
+                        return None
+                    return iv
                 except Exception:
                     return None
             out[rb_id] = {
@@ -293,23 +307,96 @@ def bricklink_oauth_from_env() -> Optional[OAuth1]:
     return OAuth1(BRICKLINK_CONSUMER_KEY, BRICKLINK_CONSUMER_SECRET, BRICKLINK_TOKEN, BRICKLINK_TOKEN_SECRET)
 
 
-def bricklink_list_item_colors(bl_part_id: str, oauth: OAuth1, item_type: str = "P", timeout_s: int = 30) -> List[int]:
-    """GET /items/{type}/{no}/colors and return list of BL color_ids."""
+def bricklink_get_item(bl_item_no: str, oauth: OAuth1, item_type: str = "P", timeout_s: int = 30) -> dict:
+    """GET /items/{type}/{no} and return BrickLink item 'data' dict (or {})."""
     t = ITEMTYPE_TO_PATH.get((item_type or "P").strip().upper(), "part")
-    no = quote((bl_part_id or "").strip(), safe="")
-    url = f"https://api.bricklink.com/api/store/v1/items/{t}/{no}/colors"
+    no = quote((bl_item_no or "").strip(), safe="")
+    url = f"https://api.bricklink.com/api/store/v1/items/{t}/{no}"
     r = requests.get(url, auth=oauth, timeout=timeout_s)
     r.raise_for_status()
-    data = r.json() or {}
-    items = data.get("data") or []
-    out: List[int] = []
-    for it in items:
-        try:
-            out.append(int(it.get("color_id")))
-        except Exception:
-            continue
-    return sorted(set(out))
+    payload = r.json() or {}
+    data = payload.get("data")
+    return data if isinstance(data, dict) else {}
 
+
+def bricklink_get_alternate_no(bl_item_no: str, oauth: OAuth1, item_type: str = "P", timeout_s: int = 30) -> Optional[str]:
+    """Try to resolve BrickLink Alternate Item No for a given item.
+
+    BrickLink's API fields can vary across item types/eras; we check multiple keys and tolerate
+    missing schemas.
+    """
+    data = bricklink_get_item(bl_item_no, oauth, item_type=item_type, timeout_s=timeout_s)
+
+    # Common variants
+    candidates = [
+        data.get("alternate_no"),
+        data.get("alternate_item_no"),
+        data.get("alternate_item_number"),
+        data.get("alternate"),
+        data.get("alternateNo"),
+        data.get("alternateItemNo"),
+    ]
+
+    def _norm(s: str) -> str:
+        return (s or "").strip().lower()
+
+    base = _norm(str(bl_item_no))
+
+    for v in candidates:
+        if isinstance(v, str) and v.strip():
+            if _norm(v) != base:
+                return v.strip()
+        if isinstance(v, list):
+            for it in v:
+                if isinstance(it, str) and it.strip():
+                    if _norm(it) != base:
+                        return it.strip()
+                if isinstance(it, dict):
+                    for kk in ("no", "item_no", "alternate_no", "itemNo"):
+                        vv = it.get(kk)
+                        if isinstance(vv, str) and vv.strip():
+                            if _norm(vv) != base:
+                                return vv.strip()
+
+    return None
+
+
+def bricklink_list_item_colors(bl_item_no: str, oauth: OAuth1, item_type: str = "P", timeout_s: int = 30) -> List[int]:
+    """GET /items/{type}/{no}/colors and return list of BL color_ids.
+
+    Fallback: if BrickLink returns 0 colors, try the Alternate Item No (when present).
+    """
+
+    def _call_colors(no: str) -> List[int]:
+        t = ITEMTYPE_TO_PATH.get((item_type or "P").strip().upper(), "part")
+        enc = quote((no or "").strip(), safe="")
+        url = f"https://api.bricklink.com/api/store/v1/items/{t}/{enc}/colors"
+        r = requests.get(url, auth=oauth, timeout=timeout_s)
+        r.raise_for_status()
+        data = r.json() or {}
+        items = data.get("data") or []
+        out: List[int] = []
+        for it in items:
+            try:
+                out.append(int(it.get("color_id")))
+            except Exception:
+                continue
+        return sorted(set(out))
+
+    out = _call_colors(bl_item_no)
+
+    if not out:
+        try:
+            alt = bricklink_get_alternate_no(bl_item_no, oauth, item_type=item_type, timeout_s=timeout_s)
+        except Exception:
+            alt = None
+
+        if alt:
+            alt_out = _call_colors(alt)
+            if alt_out:
+                return alt_out
+
+    return out
 
 # -----------------------------
 # BrickOwl API
@@ -579,6 +666,7 @@ def resolve_boid_for_pair(
     *,
     country: str = "PT",
     validate_availability: bool = False,
+    alternate_resolver: Optional[callable] = None,
 ) -> Optional[str]:
     """Resolve BOID for (bl_part_id, bo_color_id) using the user's validated approach.
 
@@ -609,8 +697,23 @@ def resolve_boid_for_pair(
         return None
 
     if not boids:
-        issues_add("WARN", "BRICKOWL_ID_LOOKUP_EMPTY", f"{bl_part_id}", f"id_lookup devolveu 0 BOIDs para bl_item_no={bl_part_id}")
-        return None
+        # Retry via BrickLink Alternate Item No when available (optional).
+        alt = None
+        if 'alternate_resolver' in locals() and callable(alternate_resolver):
+            try:
+                alt = alternate_resolver()
+            except Exception:
+                alt = None
+        if alt:
+            try:
+                boids = bo_api.catalog_id_lookup(id_value=str(alt), item_type="Part", id_type="bl_item_no")
+            except Exception as e:
+                issues_add("WARN", "BRICKOWL_ID_LOOKUP_FAILED", f"{bl_part_id}", f"id_lookup falhou (alternate={alt}): {e}")
+                return None
+
+    if not boids:
+        issues_add("INFO", "BRICKOWL_NO_ENTRY", f"{bl_part_id}", "id_lookup vazio; a marcar boid=no_bo_id.")
+        return "no_bo_id"
 
     # Prefer base without hyphen when available.
     try:
@@ -681,6 +784,109 @@ def resolve_boid_for_pair(
         f"Construído/selecionado '{boid_color}' mas catalog/lookup não validou (boids candidatos: {len(boids)}).",
     )
     return None
+
+def resolve_boid_without_color(
+    bo_api: BrickOwlAPI,
+    bl_part_id: str,
+    issues_add: callable,
+    *,
+    country: str = "PT",
+    validate_availability: bool = False,
+    alternate_resolver: Optional[callable] = None,
+) -> Tuple[Optional[str], Optional[int]]:
+    """Resolve a BOID even when bo_color_id is unknown.
+
+    Rules (project decisions):
+      - Try BrickOwl catalog/id_lookup using BrickLink item no.
+      - If empty, retry with BrickLink Alternate Item No (if available).
+      - Prefer a BOID without hyphen (no-color BOID) when present.
+      - Validate via catalog/lookup; if lookup yields no result, accept BOID and keep color NULL.
+      - If id_lookup is empty after fallback, return ("no_bo_id", None).
+
+    Returns: (boid, inferred_bo_color_id_or_None)
+    """
+
+    def _lookup_ids(item_no: str) -> List[str]:
+        return bo_api.catalog_id_lookup(id_value=str(item_no), item_type="Part", id_type="bl_item_no")
+
+    try:
+        boids = _lookup_ids(str(bl_part_id))
+    except Exception as e:
+        issues_add("WARN", "BRICKOWL_ID_LOOKUP_FAILED", f"{bl_part_id}", f"id_lookup falhou: {e}")
+        return (None, None)
+
+    if not boids and alternate_resolver is not None:
+        try:
+            alt = alternate_resolver()
+        except Exception:
+            alt = None
+        if alt:
+            try:
+                boids = _lookup_ids(str(alt))
+            except Exception as e:
+                issues_add("WARN", "BRICKOWL_ID_LOOKUP_FAILED", f"{bl_part_id}", f"id_lookup falhou (alternate={alt}): {e}")
+                return (None, None)
+
+    if not boids:
+        # Final decision: BrickOwl has no mapping for this BrickLink item.
+        issues_add("INFO", "BRICKOWL_NO_ENTRY", f"{bl_part_id}", "id_lookup vazio; a marcar boid=no_bo_id.")
+        return ("no_bo_id", None)
+
+    boids_s = [str(b).strip() for b in boids if str(b).strip()]
+    # Prefer true no-color BOID (no hyphen) when present.
+    base_candidates = [b for b in boids_s if '-' not in b]
+    if base_candidates:
+        chosen = base_candidates[0]
+    elif len(boids_s) == 1:
+        chosen = boids_s[0]
+    else:
+        issues_add("WARN", "BRICKOWL_ID_LOOKUP_AMBIGUOUS", f"{bl_part_id}", f"id_lookup devolveu múltiplos BOIDs ({len(boids_s)}) mas bo_color_id é desconhecido; não é seguro escolher.")
+        return (None, None)
+
+    inferred_color: Optional[int] = None
+    if '-' in chosen:
+        try:
+            suffix = chosen.split('-', 1)[1].strip()
+            inferred_color = int(suffix)
+            if inferred_color == 0:
+                inferred_color = None
+        except Exception:
+            inferred_color = None
+
+    def _extract_color_id(payload: dict) -> Optional[int]:
+        if not isinstance(payload, dict) or payload.get('error'):
+            return None
+        data = payload.get('data') if isinstance(payload.get('data'), dict) else payload
+        if not isinstance(data, dict):
+            return None
+        for k in ('bo_color_id', 'color_id'):
+            v = data.get(k)
+            try:
+                iv = int(v)
+                if iv == 0:
+                    continue
+                return iv
+            except Exception:
+                continue
+        return None
+
+    # Validate via lookup; if lookup doesn't validate, accept BOID and keep color NULL.
+    try:
+        info = bo_api.catalog_lookup(str(chosen))
+        inferred_from_lookup = _extract_color_id(info)
+        if inferred_from_lookup is not None:
+            inferred_color = inferred_from_lookup
+    except Exception:
+        pass
+
+    if validate_availability:
+        try:
+            _ = bo_api.catalog_availability(str(chosen), country=country)
+        except Exception:
+            pass
+
+    return (str(chosen), inferred_color)
+
 
 
 def init_db(db_path: Path) -> None:
@@ -865,13 +1071,8 @@ def main() -> int:
             "source",
         ],
     )
-    # Sempre limpar o CSV de issues no inicio do run (evita ficheiro antigo quando um run termina antes do export)
-    issues_csv.parent.mkdir(parents=True, exist_ok=True)
-    with issues_csv.open("w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["severity", "issue_type", "key", "details"])
-
-    # Sempre limpar o error log no inicio do run (este ficheiro e' para diagnostico do run atual)
+    write_header_csv_overwrite(issues_csv, ["severity", "issue_type", "key", "details"])
+    # Truncar log por run (mantém apenas o run atual)
     error_log_path.parent.mkdir(parents=True, exist_ok=True)
     error_log_path.write_text("", encoding="utf-8")
 
@@ -880,17 +1081,10 @@ def main() -> int:
     cur = con.cursor()
 
     def add_issue(sev: str, typ: str, key: str, details: str) -> None:
-        ts = int(time.time())
         cur.execute(
             "INSERT INTO build_issues(ts,severity,issue_type,key,details) VALUES (?,?,?,?,?)",
-            (ts, sev, typ, key, details),
+            (int(time.time()), sev, typ, key, details),
         )
-        # Registar WARN/ERROR tambem no log de diagnostico (alem do CSV/DB).
-        if sev in ("WARN", "ERROR"):
-            try:
-                append_error_log(error_log_path, f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {sev},{typ},{key},{details}")
-            except Exception:
-                pass
 
     def checkpoint(phase: str, extra: dict) -> None:
         payload = {"ts": int(time.time()), "phase": phase, **extra}
@@ -903,7 +1097,13 @@ def main() -> int:
     # Fresh rebuild only in build/all
     if mode in ("all", "build"):
         cur.execute("DELETE FROM part_color_map")
+
+    # Sempre limpamos build_issues no início de runs que executam lógica (all/build/boid),
+    # para que part_color_issues.csv reflita apenas o run atual.
+    if mode in ("all", "build", "boid"):
         cur.execute("DELETE FROM build_issues")
+
+    if mode in ("all", "build", "boid"):
         con.commit()
 
     # Load color map early if present (used in BOID fixups too)
@@ -1029,8 +1229,11 @@ def main() -> int:
                 else:
                     # element_id missing from Rebrickable elements.csv -> mandatory BrickLink fallback
                     missing_elements += 1
+
+                    # Este é um caso esperado (Rebrickable incompleto para peças antigas/especiais).
+                    # Não deve ser tratado como WARN/ERROR se o fallback BL conseguir preencher cores.
                     add_issue(
-                        "WARN",
+                        "INFO",
                         "ELEMENT_NOT_IN_REBRICKABLE_ELEMENTS",
                         str(element_id),
                         f"element_id={element_id} não existe em elements.csv (bl_part_id={bl_part_id}).",
@@ -1038,6 +1241,23 @@ def main() -> int:
 
                     if str(bl_part_id) not in fallback_done_parts:
                         fallback_done_parts.add(str(bl_part_id))
+
+                        def _insert_bl_placeholder(src: str) -> None:
+                            # Mantém rastreabilidade: inserimos a peça mesmo sem lista de cores.
+                            batch_rows.append(
+                                (
+                                    str(bl_part_id),
+                                    str(element_id),
+                                    "no_id",
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    src,
+                                )
+                            )
+
                         if oauth is None:
                             add_issue(
                                 "WARN",
@@ -1045,6 +1265,7 @@ def main() -> int:
                                 str(bl_part_id),
                                 "BrickLink OAuth não configurado; não é possível obter cores conhecidas para fallback.",
                             )
+                            _insert_bl_placeholder("BL_FALLBACK_UNAVAILABLE")
                         else:
                             try:
                                 if str(bl_part_id) in bl_colors_cache:
@@ -1060,17 +1281,18 @@ def main() -> int:
                                         str(bl_part_id),
                                         f"BrickLink devolveu 0 cores para bl_part_id={bl_part_id}.",
                                     )
+                                    _insert_bl_placeholder("BL_FALLBACK_NO_COLORS")
                                 else:
                                     fallback_parts += 1
 
                                     for blc in known_colors:
-                                        bo_c = bl_to_bo.get(int(blc))
-                                        ld_c = bl_to_ldraw.get(int(blc))
+                                        bo_c = bl_to_bo.get(int(blc)) if bl_to_bo else None
+                                        ld_c = bl_to_ldraw.get(int(blc)) if bl_to_ldraw else None
                                         batch_rows.append(
                                             (
                                                 str(bl_part_id),
                                                 str(element_id),
-                                                None,
+                                                "no_id",
                                                 None,
                                                 int(blc),
                                                 int(bo_c) if bo_c is not None else None,
@@ -1088,6 +1310,8 @@ def main() -> int:
                                     str(bl_part_id),
                                     f"BrickLink fallback falhou para bl_part_id={bl_part_id}: {e}",
                                 )
+                                _insert_bl_placeholder("BL_FALLBACK_FAILED")
+
 
                 # flush batch
                 if len(batch_rows) >= int(args.commit_every):
@@ -1248,12 +1472,42 @@ def main() -> int:
                             bo_color_id_eff = None
 
                     if bo_color_id_eff is None:
-                        add_issue(
-                            "WARN",
-                            "BRICKOWL_BO_COLOR_ID_MISSING",
-                            str(bl_part_id),
-                            "Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).",
-                        )
+                        # Fallback: tentar resolver BOID mesmo sem bo_color_id (casos sem cor / referência especial).
+                        def _alt_resolver():
+                            if oauth is None:
+                                return None
+                            return bricklink_get_alternate_no(str(bl_part_id), oauth, item_type="P", timeout_s=30)
+
+                        try:
+                            boid_nc, inferred = resolve_boid_without_color(
+                                bo_api,
+                                str(bl_part_id),
+                                add_issue,
+                                country=str(args.boid_country),
+                                validate_availability=bool(args.boid_validate_availability),
+                                alternate_resolver=_alt_resolver,
+                            )
+                        except Exception as e:
+                            add_issue("WARN", "BRICKOWL_BOID_RESOLVE_FAILED", f"{bl_part_id}|no_color", f"Falha boid resolve (no_color): {e}")
+                            boid_nc, inferred = (None, None)
+
+                        if boid_nc == "no_bo_id":
+                            # Decisão final: BrickOwl não tem esta referência.
+                            if blc is not None:
+                                cur.execute("UPDATE part_color_map SET boid=?, source=? WHERE bl_part_id=? AND bl_color_id=?", ("no_bo_id", "NO_BO_ID", str(bl_part_id), int(blc)))
+                            else:
+                                cur.execute("UPDATE part_color_map SET boid=?, source=? WHERE bl_part_id=? AND (bl_color_id IS NULL)", ("no_bo_id", "NO_BO_ID", str(bl_part_id)))
+                            updated += 1
+                            continue
+
+                        if boid_nc:
+                            # Aceitar BOID e manter cores NULL se não existir mapeamento seguro.
+                            bo_col = int(inferred) if inferred is not None else None
+                            if blc is not None:
+                                cur.execute("UPDATE part_color_map SET boid=?, bo_color_id=? WHERE bl_part_id=? AND bl_color_id=?", (str(boid_nc), bo_col, str(bl_part_id), int(blc)))
+                            else:
+                                cur.execute("UPDATE part_color_map SET boid=?, bo_color_id=? WHERE bl_part_id=? AND (bl_color_id IS NULL)", (str(boid_nc), bo_col, str(bl_part_id)))
+                            updated += 1
                         continue
 
                     try:
@@ -1264,12 +1518,21 @@ def main() -> int:
                             add_issue,
                             country=str(args.boid_country),
                             validate_availability=bool(args.boid_validate_availability),
+                            alternate_resolver=(lambda: bricklink_get_alternate_no(str(bl_part_id), oauth, item_type="P", timeout_s=30) if oauth is not None else None),
                         )
                     except Exception as e:
                         add_issue("WARN", "BRICKOWL_BOID_RESOLVE_FAILED", f"{bl_part_id}|{bo_color_id_eff}", f"Falha boid resolve: {e}")
                         boid = None
 
-                    if boid:
+                    if boid == "no_bo_id":
+                        # Decisão final: BrickOwl não tem esta referência.
+                        if blc is not None:
+                            cur.execute("UPDATE part_color_map SET boid=?, source=? WHERE bl_part_id=? AND bl_color_id=?", ("no_bo_id", "NO_BO_ID", str(bl_part_id), int(blc)))
+                        else:
+                            cur.execute("UPDATE part_color_map SET boid=?, source=? WHERE bl_part_id=? AND bo_color_id=? AND (bl_color_id IS NULL)", ("no_bo_id", "NO_BO_ID", str(bl_part_id), int(bo_color_id_eff)))
+                        updated += 1
+
+                    elif boid:
                         if blc is not None:
                             cur.execute(
                                 "UPDATE part_color_map SET boid=?, bo_color_id=? WHERE bl_part_id=? AND bl_color_id=?",
@@ -1324,13 +1587,23 @@ def main() -> int:
                     ORDER BY bl_part_id, element_id, bl_color_id
                     """
                 ):
-                    w.writerow(row)
+                    (bl_part_id, element_id, rb_part_num, rb_color_id, bl_color_id, bo_color_id, ldraw_color_id, boid, source) = row
+
+                    # Representacao explicita de casos 'sem cor' no CSV (DB mantem NULL).
+                    bl_color_out = bl_color_id
+                    bo_color_out = bo_color_id
+                    if (bl_color_id is None and bo_color_id is None and boid and '-' not in str(boid) and str(boid) != 'no_bo_id'):
+                        bl_color_out = 'no_color'
+                        bo_color_out = 'no_color'
+
+                    w.writerow([bl_part_id, element_id, rb_part_num, rb_color_id, bl_color_out, bo_color_out, ldraw_color_id, boid, source])
 
             print("[EXPORT] part_color_issues.csv...")
             with issues_csv.open("w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
                 w.writerow(["severity", "issue_type", "key", "details"])
-                for row in cur.execute("SELECT severity, issue_type, key, details FROM build_issues ORDER BY id"):
+                for row in cur.execute("SELECT severity, issue_type, key, details FROM build_issues WHERE severity IN ('WARN','ERROR') ORDER BY id"):
+
                     w.writerow(row)
 
             con.commit()
