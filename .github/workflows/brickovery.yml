@@ -226,7 +226,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Add outputs (inclui DB e CSVs)
-          git add -A data "data base/brickovery.db" "data base/brickovery.db-wal" "data base/brickovery.db-shm" || true
+          git add -A data "data base/brickovery.db" || true
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
