@@ -1,0 +1,236 @@
+name,rb_color_id,rb_rgb,rb_is_trans,bl_color_id,bl_color_name,bl_rgb,bl_source,ldraw_color_id,seed_bl
+[Unknown],-1,0033B2,,66,Pearl Light Gray,ACB7C0,api_resolve,,
+Black,0,05131D,,11,Black,212121,seed,,11
+Blue,1,0055BF,,7,Blue,0057A6,seed,,7
+Green,2,237841,,6,Green,00923D,seed,,6
+Dark Turquoise,3,008F9B,,39,Dark Turquoise,00A29F,seed,,39
+Red,4,C91A09,,5,Red,B30006,seed,,5
+Dark Pink,5,C870A0,,47,Dark Pink,EF5BB3,seed,,47
+Brown,6,583927,,8,Brown,6B3F22,seed,,8
+Light Gray,7,9BA19D,,9,Light Gray,9C9C9C,seed,,9
+Dark Gray,8,6D6E5C,,10,Dark Gray,6B5A5A,seed,,10
+Light Blue,9,B4D2E3,,62,Light Blue,C8D9E1,seed,,62
+Bright Green,10,4B9F4A,,36,Bright Green,10CB31,seed,,36
+Light Turquoise,11,55A5AF,,40,Light Turquoise,00C5BC,seed,,40
+Salmon,12,F2705E,,25,Salmon,FF7D5D,seed,,25
+Pink,13,FC97AC,,23,Pink,F5CDD6,seed,,23
+Yellow,14,F2CD37,,3,Yellow,FFE001,seed,,3
+White,15,FFFFFF,,1,White,FFFFFF,seed,,1
+Light Green,17,C2DAB8,,38,Light Green,D7EED1,seed,,38
+Light Yellow,18,FBE696,,33,Light Yellow,FEE89F,seed,,33
+Tan,19,E4CD9E,,2,Tan,EED9A4,seed,,2
+Light Violet,20,C9CAE2,,44,Light Violet,C9CAE2,seed,,44
+Glow In Dark Opaque,21,D4D5C9,,46,Glow In Dark Opaque,d4d5c9,seed,,46
+Purple,22,81007B,,24,Purple,7A238D,seed,,24
+Dark Blue-Violet,23,2032B0,,109,Dark Royal Blue,2032B0,seed,,109
+Orange,25,FE8A18,,4,Orange,FF7E14,seed,,4
+Magenta,26,923978,,71,Magenta,B72276,seed,,71
+Lime,27,BBE90B,,34,Lime,C4E000,seed,,34
+Dark Tan,28,958A73,,69,Dark Tan,B89869,seed,,69
+Bright Pink,29,E4ADC8,,104,Bright Pink,F7BCDA,seed,,104
+Medium Lavender,30,AC78BA,,157,Medium Lavender,C689D9,seed,,157
+Lavender,31,E1D5ED,,154,Lavender,D3BDE3,seed,,154
+Trans-Black IR Lens,32,635F52,,,,,none,,
+Trans-Dark Blue,33,0020A0,,14,Trans-Dark Blue,00296B,seed,,14
+Trans-Green,34,84B68D,,20,Trans-Green,217625,seed,,20
+Trans-Bright Green,35,D9E4A7,,108,Trans-Bright Green,10Cb31,seed,,108
+Trans-Red,36,C91A09,,17,Trans-Red,9C0010,seed,,17
+Trans-Brown,40,635F52,,13,Trans-Brown,939484,seed,,13
+Trans-Light Blue,41,AEEFEC,,15,Trans-Light Blue,68BCC5,seed,,15
+Trans-Neon Green,42,F8F184,,16,Trans-Neon Green,C0F500,seed,,16
+Trans-Very Lt Blue,43,C1DFF0,,113,Trans-Aqua,B7C8BF,seed,,113
+Trans-Dark Pink,45,DF6695,,50,Trans-Dark Pink,CE1d9b,seed,,50
+Trans-Yellow,46,F5CD2F,,19,Trans-Yellow,EBF72D,seed,,19
+Trans-Clear,47,FCFCFC,,12,Trans-Clear,EEEEEE,seed,,12
+Trans-Purple,52,A5A5CB,,51,Trans-Purple,5525B7,seed,,51
+Trans-Neon Yellow,54,DAB000,,121,Trans-Neon Yellow,FFD700,seed,,121
+Trans-Neon Orange,57,FF800D,,18,Trans-Neon Orange,FF4231,seed,,18
+Chrome Antique Brass,60,645A4C,,57,Chrome Antique Brass,645a4c,seed,,57
+Chrome Blue,61,6C96BF,,52,Chrome Blue,5C66A4,seed,,52
+Chrome Green,62,3CB371,,64,Chrome Green,3CB371,seed,,64
+Chrome Pink,63,AA4D8E,,82,Chrome Pink,aa4d8e,seed,,82
+Chrome Black,64,1B2A34,,122,Chrome Black,544E4F,seed,,122
+Very Light Orange,68,F3CF9B,,96,Very Light Orange,FFDCA4,seed,,96
+Light Purple,69,CD6298,,93,Light Purple,AF3195,seed,,93
+Reddish Brown,70,582A12,,88,Reddish Brown,82422A,seed,,88
+Light Bluish Gray,71,A0A5A9,,86,Light Bluish Gray,AFB5C7,seed,,86
+Dark Bluish Gray,72,6C6E68,,85,Dark Bluish Gray,595D60,seed,,85
+Medium Blue,73,5A93DB,,42,Medium Blue,82ADD8,seed,,42
+Medium Green,74,73DCA1,,37,Medium Green,91DF8C,seed,,37
+Speckle Black-Copper,75,05131D,,116,Speckle Black-Copper,5F4E47,seed,,116
+Speckle DBGray-Silver,76,6C6E68,,117,Speckle DBGray-Silver,4A6363,seed,,117
+Light Pink,77,FECCCF,,56,Rose Pink,F2D3D1,seed,,56
+Light Nougat,78,F6D7B3,,90,Light Nougat,FECCB0,seed,,90
+Milky White,79,FFFFFF,,60,Milky White,d4d3dd,seed,,60
+Metallic Silver,80,A5A9B4,,67,Metallic Silver,C0C0C0,seed,,67
+Metallic Green,81,899B5F,,70,Metallic Green,bdb573,seed,,70
+Metallic Gold,82,DBAC34,,65,Metallic Gold,B8860B,seed,,65
+Medium Nougat,84,AA7D55,,150,Medium Nougat,E3A05B,seed,,150
+Dark Purple,85,3F3691,,89,Dark Purple,5F2683,seed,,89
+Light Brown,86,7C503A,,91,Light Brown,99663E,seed,,91
+Royal Blue,89,4C61DB,,97,Royal Blue (Old Blue-Violet),506CEF,seed,,97
+Nougat,92,D09168,,28,Nougat,FFAF7D,seed,,28
+Light Salmon,100,FEBABD,,26,Light Salmon,FCC7B7,seed,,26
+Violet,110,4354A3,,43,Violet,3448A4,seed,,43
+Medium Bluish Violet,112,6874CA,,73,Medium Violet,9391E4,seed,,73
+Glitter Trans-Dark Pink,114,DF6695,,100,Glitter Trans-Dark Pink,CE1d9b,seed,,100
+Medium Lime,115,C7D23C,,76,Medium Lime,DFE000,seed,,76
+Glitter Trans-Clear,117,FFFFFF,,101,Glitter Trans-Clear,EEEEEE,seed,,101
+Aqua,118,B3D7D1,,41,Aqua,BCE5DC,seed,,41
+Light Lime,120,D9E4A7,,35,Light Lime,ECEEBD,seed,,35
+Light Orange,125,F9BA61,,32,Light Orange,FFBC36,seed,,32
+Glitter Trans-Purple,129,A5A5CB,,102,Glitter Trans-Purple,3A2B82,seed,,102
+Speckle Black-Silver,132,05131D,,111,Speckle Black-Silver,7C7E7C,seed,,111
+Speckle Black-Gold,133,05131D,,151,Speckle Black-Gold,AB9421,seed,,151
+Copper,134,AE7A59,,84,Copper,AC6D52,seed,,84
+Pearl Light Gray,135,9CA3A8,,66,Pearl Light Gray,ACB7C0,seed,,66
+Pearl Sand Blue,137,7988A1,,78,Pearl Sand Blue,868FAA,seed,,78
+Pearl Light Gold,142,DCBC81,,61,Pearl Light Gold,E7AE5A,seed,,61
+Trans-Medium Blue,143,CFE2F7,,74,Trans-Medium Blue,76A3C8,seed,,74
+Pearl Dark Gray,148,575857,,77,Pearl Dark Gray,666660,seed,,77
+Pearl Very Light Gray,150,ABADAC,,119,Pearl Very Light Gray,D4D2CD,seed,,119
+Very Light Bluish Gray,151,E6E3E0,,99,Very Light Bluish Gray,E4E8E8,seed,,99
+Yellowish Green,158,DFEEA5,,158,Yellowish Green,E7F2A7,seed,,158
+Flat Dark Gold,178,B48455,,81,Flat Dark Gold,AD7118,seed,,81
+Flat Silver,179,898788,,95,Flat Silver,8D949C,seed,,95
+Trans-Orange,182,F08F1C,,98,Trans-Orange,E96F01,seed,,98
+Pearl White,183,F2F3F2,,83,Pearl White,FFFFFF,seed,,83
+Bright Light Orange,191,F8BB3D,,110,Bright Light Orange,FFC700,seed,,110
+Bright Light Blue,212,9FC3E9,,105,Bright Light Blue,BCD1ED,seed,,105
+Rust,216,B31004,,27,Rust,B24817,seed,,27
+Bright Light Yellow,226,FFF03A,,103,Bright Light Yellow,FFF08C,seed,,103
+Trans-Pink,230,E4ADC8,,107,Trans-Pink,FF8298,seed,,107
+Sky Blue,232,7DBFDD,,87,Sky Blue,8AD4E1,seed,,87
+Trans-Light Purple,236,96709F,,114,Trans-Light Purple,B97AB1,seed,,114
+Dark Blue,272,0A3463,,63,Dark Blue,243757,seed,,63
+Dark Green,288,184632,,80,Dark Green,2E5543,seed,,80
+Glow In Dark Trans,294,BDC6AD,,118,Glow In Dark Trans,bdc6ad,seed,,118
+Pearl Gold,297,AA7F2E,,115,Pearl Gold,E79E1D,seed,,115
+Dark Brown,308,352100,,120,Dark Brown,50372F,seed,,120
+Maersk Blue,313,3592C3,,72,Maersk Blue,7DC1D8,seed,,72
+Dark Red,320,720E0F,,59,Dark Red,6A0E15,seed,,59
+Dark Azure,321,078BC9,,153,Dark Azure,009FE0,seed,,153
+Medium Azure,322,36AEBF,,156,Medium Azure,6ACEE0,seed,,156
+Light Aqua,323,ADC3C0,,152,Light Aqua,CFEFEA,seed,,152
+Olive Green,326,9B9A5A,,155,Olive Green,ABA953,seed,,155
+Chrome Gold,334,BBA53D,,21,Chrome Gold,f1f2e1,seed,,21
+Sand Red,335,D67572,,58,Sand Red,C58D80,seed,,58
+Medium Dark Pink,351,F785B1,,94,Medium Dark Pink,F785B1,seed,,94
+Earth Orange,366,FA9C1C,,29,Earth Orange,E6881D,seed,,29
+Sand Purple,373,"8,45E+086",,54,Sand Purple,B57DA5,seed,,54
+Sand Green,378,A0BCAC,,48,Sand Green,A2BFA3,seed,,48
+Sand Blue,379,6074A1,,55,Sand Blue,8899AB,seed,,55
+Chrome Silver,383,E0E0E0,,22,Chrome Silver,DCDCDC,seed,,22
+Fabuland Brown,450,B67B50,,106,Fabuland Brown,B3694E,seed,,106
+Medium Orange,462,FFA70B,,31,Medium Orange,FFA531,seed,,31
+Dark Orange,484,A95500,,68,Dark Orange,B35408,seed,,68
+Very Light Gray,503,E6E3DA,,49,Very Light Gray,E8E8E8,seed,,49
+Glow in Dark White,1000,D9D9D9,,159,Glow In Dark White,d9d9d9,seed,,159
+Medium Violet,1001,93910000,,245,Lilac,7862CE,seed,,245
+Glitter Trans-Neon Green,1002,C0F500,,163,Glitter Trans-Neon Green,C0F500,seed,,163
+Glitter Trans-Light Blue,1003,68BCC5,,162,Glitter Trans-Light Blue,68BCC5,seed,,162
+Trans-Flame Yellowish Orange,1004,FCB76D,,164,Trans-Light Orange,E99A3A,seed,,164
+Trans-Fire Yellow,1005,FBE890,,121,Trans-Neon Yellow,FFD700,api_resolve,,
+Trans-Light Royal Blue,1006,B4D4F7,,74,Trans-Medium Blue,76A3C8,api_resolve,,
+Reddish Lilac,1007,8E5597,,227,Clikits Lavender,E0AAD9,seed,,227
+Fabuland Orange,1012,EF9121,,160,Fabuland Orange,EF9121,seed,,160
+Modulex White,1013,F4F4F4,,123,Mx White,FFFFFF,seed,,123
+Modulex Light Bluish Gray,1014,AfB5C7,,124,Mx Light Bluish Gray,AfB5C7,seed,,124
+Modulex Light Gray,1015,9C9C9C,,125,Mx Light Gray,9C9C9C,seed,,125
+Modulex Charcoal Gray,1016,595D60,,126,Mx Charcoal Gray,595D60,seed,,126
+Modulex Tile Gray,1017,6B5A5A,,127,Mx Tile Gray,6B5A5A,seed,,127
+Modulex Black,1018,4D4C52,,128,Mx Black,000000,seed,,128
+Modulex Tile Brown,1019,330000,,131,Mx Tile Brown,330000,seed,,131
+Modulex Terracotta,1020,5C5030,,134,Mx Terracotta,5C5030,seed,,134
+Modulex Brown,1021,907450,,132,Mx Brown,907450,seed,,132
+Modulex Buff,1022,DEC69C,,133,Mx Buff,DEC69C,seed,,133
+Modulex Red,1023,B52C20,,129,Mx Red,B52C20,seed,,129
+Modulex Pink Red,1024,F45C40,,130,Mx Pink Red,F45C40,seed,,130
+Modulex Orange,1025,F47B30,,135,Mx Orange,F47B30,seed,,135
+Modulex Light Orange,1026,F7AD63,,136,Mx Light Orange,F7AD63,seed,,136
+Modulex Light Yellow,1027,FFE371,,137,Mx Light Yellow,FFE371,seed,,137
+Modulex Ochre Yellow,1028,FED557,,138,Mx Ochre Yellow,FED557,seed,,138
+Modulex Lemon,1029,BDC618,,139,Mx Lemon,BDC618,seed,,139
+Modulex Pastel Green,1030,7DB538,,141,Mx Pastel Green,7DB538,seed,,141
+Modulex Olive Green,1031,7C9051,,140,Mx Olive Green,7C9051,seed,,140
+Modulex Aqua Green,1032,27867E,,142,Mx Aqua Green,27867E,seed,,142
+Modulex Teal Blue,1033,467083,,146,Mx Teal Blue,467083,seed,,146
+Modulex Tile Blue,1034,0057A6,,143,Mx Tile Blue,0057A6,seed,,143
+Modulex Medium Blue,1035,61AFFF,,144,Mx Medium Blue,61AFFF,seed,,144
+Modulex Pastel Blue,1036,68AECE,,145,Mx Pastel Blue,68AECE,seed,,145
+Modulex Violet,1037,BD7D85,,147,Mx Violet,BD7D85,seed,,147
+Modulex Pink,1038,F785B1,,148,Mx Pink,F785B1,seed,,148
+Modulex Clear,1039,FFFFFF,,149,Mx Clear,EEEEEE,seed,,149
+Modulex Foil Dark Gray,1040,595D60,,210,Mx Foil Dark Gray,595D60,seed,,210
+Modulex Foil Light Gray,1041,9C9C9C,,211,Mx Foil Light Gray,9C9C9C,seed,,211
+Modulex Foil Dark Green,1042,6400,,212,Mx Foil Dark Green,006400,seed,,212
+Modulex Foil Light Green,1043,7DB538,,213,Mx Foil Light Green,7DB538,seed,,213
+Modulex Foil Dark Blue,1044,0057A6,,214,Mx Foil Dark Blue,0057A6,seed,,214
+Modulex Foil Light Blue,1045,68AECE,,215,Mx Foil Light Blue,68AECE,seed,,215
+Modulex Foil Violet,1046,4B0082,,216,Mx Foil Violet,4B0082,seed,,216
+Modulex Foil Red,1047,8B0000,,217,Mx Foil Red,8B0000,seed,,217
+Modulex Foil Yellow,1048,FED557,,218,Mx Foil Yellow,FED557,seed,,218
+Modulex Foil Orange,1049,F7AD63,,219,Mx Foil Orange,F7AD63,seed,,219
+Coral,1050,FF698F,,220,Coral,FF8172,seed,,220
+Pastel Blue,1051,5AC4DA,,72,Maersk Blue,7DC1D8,seed,,72
+Glitter Trans-Orange,1052,F08F1C,,222,Glitter Trans-Orange,D04010,seed,,222
+Opal Trans-Light Blue,1053,68BCC5,,223,Satin Trans-Light Blue,68BCC5,seed,,223
+Opal Trans-Dark Pink,1054,CE1D9B,,224,Satin Trans-Dark Pink,CE1d9b,seed,,224
+Opal Trans-Clear,1055,FCFCFC,,228,Satin Trans-Clear,EEEEEE,seed,,228
+Opal Trans-Brown,1056,583927,,229,Satin Trans-Brown,939484,seed,,229
+Trans-Light Bright Green,1057,C9E788,,226,Trans-Light Bright Green,71EB54,seed,,226
+Trans-Light Green,1058,94E5AB,,221,Trans-Light Green,94E5AB,seed,,221
+Opal Trans-Purple,1059,8320B7,,230,Satin Trans-Purple,8320B7,seed,,230
+Opal Trans-Bright Green,1060,84B68D,,233,Satin Trans-Bright Green,7fe15b,seed,,233
+Opal Trans-Dark Blue,1061,0020A0,,232,Satin Trans-Dark Blue,1552e2,seed,,232
+Vibrant Yellow,1062,EBD800,,236,Neon Yellow,FFFC00,seed,,236
+Pearl Copper,1063,B46A00,,249,Reddish Copper,D06926,seed,,249
+Reddish Gold,1065,AC8247,,235,Reddish Gold,E7891B,seed,,235
+Curry,1066,DD982E,,161,Dark Yellow,DD982E,seed,,161
+Dark Nougat,1067,AD6140,,225,Dark Nougat,CE7942,seed,,225
+Bright Reddish Orange,1068,EE5434,,231,Dark Salmon,FF6326,seed,,231
+Pearl Red,1069,D60026,,252,Pearl Red,E54952,seed,,252
+Pearl Blue,1070,0059A3,,254,Pearl Blue,3977C7,seed,,254
+Pearl Green,1071,008E3C,,253,Pearl Green,13A452,seed,,253
+Pearl Brown,1072,57392C,,255,Pearl Brown,815542,seed,,255
+Pearl Black,1073,0A1327,,244,Pearl Black,282725,seed,,244
+Duplo Blue,1074,009ECE,,247,Little Robots Blue,5DBFE4,seed,,247
+Duplo Medium Blue,1075,3E95B6,,42,Medium Blue,82ADD8,api_resolve,,
+Duplo Lime,1076,FFF230,,171,Lemon,EDDC44,seed,,171
+Fabuland Lime,1077,78FC78,,248,Fabuland Lime,ADD237,seed,,248
+Duplo Medium Green,1078,468A5F,,48,Sand Green,A2BFA3,api_resolve,,
+Duplo Light Green,1079,60BA76,,37,Medium Green,91DF8C,api_resolve,,
+Light Tan,1080,F3C988,,2,Tan,EED9A4,api_resolve,,
+Rust Orange,1081,872B17,,27,Rust,B24817,api_resolve,,
+Clikits Pink,1082,FE78B0,,104,Bright Pink,F7BCDA,api_resolve,,
+Two-tone Copper,1083,945148,,237,Bionicle Copper,985750,seed,,237
+Two-tone Gold,1084,AB673A,,238,Bionicle Gold,B9752F,seed,,238
+Two-tone Silver,1085,737271,,239,Bionicle Silver,A59287,seed,,239
+Duplo Pink,1087,FF879C,,94,Medium Dark Pink,F785B1,api_resolve,,
+Medium Brown,1088,755945,,240,Medium Brown,A16C42,seed,,240
+Warm Tan,1089,CCA373,,241,Medium Tan,FBC685,seed,,241
+Duplo Turquoise,1090,3FB69E,,40,Light Turquoise,00C5BC,api_resolve,,
+Warm Yellowish Orange,1091,FFCB78,,172,Warm Yellowish Orange,FFD788,seed,,172
+Metallic Copper,1092,764D3B,,250,Metallic Copper,C58259,seed,,250
+Light Lilac,1093,9195CA,,246,Light Lilac,CDCCEE,seed,,246
+Trans-Medium Purple,1094,8D73B3,,234,Trans-Medium Purple,9C41B6,seed,,234
+Trans-Black,1095,635F52,,251,Trans-Black,777777,seed,,251
+Glitter Trans-Medium Purple,1097,8D73B3,,102,Glitter Trans-Purple,3A2B82,api_resolve,,
+Glitter Trans-Pink,1099,E4ADC8,,,,,none,,
+Clikits Yellow,1100,FFCF0B,,3,Yellow,FFE001,api_resolve,,
+Duplo Dark Purple,1101,5F27AA,,89,Dark Purple,5F2683,api_resolve,,
+Trans-Neon Red,1102,FF0040,,,,,none,,
+Pearl Titanium,1103,3E3C39,,77,Pearl Dark Gray,666660,seed,,77
+Metal,1135,A5ADB4,,0,(Not Applicable),,api_resolve,,
+Reddish Orange,1136,CA4C0B,,167,Reddish Orange,FF5500,seed,,167
+Sienna Brown,1137,915C3C,,169,Sienna,EA8339,seed,,169
+Umber Brown,1138,5E3F33,,168,Umber,735442,seed,,168
+Opal Trans-Yellow,1139,F5CD2F,,170,Satin Trans-Yellow,EBF72D,seed,,170
+Neon Orange,1140,EC4612,,165,Neon Orange,FA5947,seed,,165
+Neon Green,1141,D2FC43,,166,Neon Green,DBF355,seed,,166
+Dark Olive Green,1142,5d5c36,,242,Dark Olive Green,76753F,seed,,242
+Glitter Milky White,1143,FFFFFF,,101,Glitter Trans-Clear,EEEEEE,api_resolve,,
+Ochre Yellow,1145,DD9E47,,173,Ochre Yellow,D89905,seed,,173
+Warm Pink,1146,F6B7BF,,175,Warm Pink,F6C6BD,seed,,175
+Blue Violet,1147,A3A9FF,,174,Blue Violet,5d67b4,seed,,174
+[No Color/Any Color],9999,05131D,,0,(Not Applicable),,seed,,0

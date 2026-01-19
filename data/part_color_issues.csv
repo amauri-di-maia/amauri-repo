@@ -1,0 +1,441 @@
+severity,issue_type,key,details
+WARN,BL_COLOR_TO_BO_COLOR_CONFLICT,66,bl_color_id=66 mapped to multiple bo_color_id: 0 vs 122
+WARN,BL_COLOR_TO_BO_COLOR_CONFLICT,121,bl_color_id=121 mapped to multiple bo_color_id: 104 vs 162
+WARN,BL_COLOR_TO_BO_COLOR_CONFLICT,74,bl_color_id=74 mapped to multiple bo_color_id: 102 vs 163
+INFO,BRICKOWL_BOID_RESOLVE_START,,"A resolver BOID para 2815 pares (part,cor)."
+INFO,BRICKOWL_BOID_NO_COLOR_OK,107416|217,BOID sem cor validado via catalog/lookup: 143457
+INFO,BRICKOWL_BOID_NO_COLOR_OK,109866pb01|217,BOID sem cor validado via catalog/lookup: 510089
+INFO,BRICKOWL_BOID_NO_COLOR_OK,109866pb02|41,BOID sem cor validado via catalog/lookup: 1372611
+INFO,BRICKOWL_BOID_NO_COLOR_OK,115329pb01|70,BOID sem cor validado via catalog/lookup: 1271163
+INFO,BRICKOWL_BOID_NO_COLOR_OK,115329pb02|211,BOID sem cor validado via catalog/lookup: 1402769
+INFO,BRICKOWL_BOID_NO_COLOR_OK,115329pb03|81,BOID sem cor validado via catalog/lookup: 747639
+INFO,BRICKOWL_BOID_NO_COLOR_OK,115329pb04|92,BOID sem cor validado via catalog/lookup: 212417
+INFO,BRICKOWL_BOID_NO_COLOR_OK,15370pb01|161,BOID sem cor validado via catalog/lookup: 904949
+INFO,BRICKOWL_BOID_NO_COLOR_OK,1820pb01|92,BOID sem cor validado via catalog/lookup: 961339
+INFO,BRICKOWL_BOID_NO_COLOR_OK,1826fc00pb006|80,BOID sem cor validado via catalog/lookup: 1527146
+INFO,BRICKOWL_BOID_NO_COLOR_OK,19729pb104|51,BOID sem cor validado via catalog/lookup: 380941
+INFO,BRICKOWL_BOID_NO_COLOR_OK,1987pb03|106,BOID sem cor validado via catalog/lookup: 776941
+INFO,BRICKOWL_BOID_NO_COLOR_OK,2136pb05|42,BOID sem cor validado via catalog/lookup: 433153
+INFO,BRICKOWL_BOID_NO_COLOR_OK,2211c01|92,BOID sem cor validado via catalog/lookup: 176800
+INFO,BRICKOWL_BOID_NO_COLOR_OK,22188|77,BOID sem cor validado via catalog/lookup: 600710
+INFO,BRICKOWL_BOID_NO_COLOR_OK,22198|77,BOID sem cor validado via catalog/lookup: 88768
+INFO,BRICKOWL_BOID_NO_COLOR_OK,22206|77,BOID sem cor validado via catalog/lookup: 703577
+INFO,BRICKOWL_BOID_NO_COLOR_OK,22214|39,BOID sem cor validado via catalog/lookup: 690012
+INFO,BRICKOWL_BOID_NO_COLOR_OK,22278|15,BOID sem cor validado via catalog/lookup: 486924
+INFO,BRICKOWL_BOID_NO_COLOR_OK,22499|39,BOID sem cor validado via catalog/lookup: 88397
+INFO,BRICKOWL_BOID_NO_COLOR_OK,22632|39,BOID sem cor validado via catalog/lookup: 71060
+INFO,BRICKOWL_BOID_NO_COLOR_OK,23260|10,BOID sem cor validado via catalog/lookup: 602346
+INFO,BRICKOWL_BOID_NO_COLOR_OK,2357|2,BOID sem cor validado via catalog/lookup: 682375
+INFO,BRICKOWL_BOID_NO_COLOR_OK,2399|199,BOID sem cor validado via catalog/lookup: 63224
+INFO,BRICKOWL_BOID_NO_COLOR_OK,24108pb02|64,BOID sem cor validado via catalog/lookup: 879570
+INFO,BRICKOWL_BOID_NO_COLOR_OK,2555|25,BOID sem cor validado via catalog/lookup: 369885
+INFO,BRICKOWL_BOID_NO_COLOR_OK,2582pb01|38,BOID sem cor validado via catalog/lookup: 302025
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3002|2,BOID sem cor validado via catalog/lookup: 462227
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3003pb026|41,BOID sem cor validado via catalog/lookup: 463075
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3005|2,BOID sem cor validado via catalog/lookup: 656416
+INFO,BRICKOWL_BOID_NO_COLOR_OK,30109|75,BOID sem cor validado via catalog/lookup: 572436
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3010px2|38,BOID sem cor validado via catalog/lookup: 358897
+INFO,BRICKOWL_BOID_NO_COLOR_OK,30133|103,BOID sem cor validado via catalog/lookup: 186420
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3020|8,BOID sem cor validado via catalog/lookup: 80025
+INFO,BRICKOWL_BOID_NO_COLOR_OK,30214|101,BOID sem cor validado via catalog/lookup: 946279
+INFO,BRICKOWL_BOID_NO_COLOR_OK,30216|75,BOID sem cor validado via catalog/lookup: 967473
+INFO,BRICKOWL_BOID_NO_COLOR_OK,30217|75,BOID sem cor validado via catalog/lookup: 134121
+INFO,BRICKOWL_BOID_NO_COLOR_OK,30249px1|81,BOID sem cor validado via catalog/lookup: 560636
+INFO,BRICKOWL_BOID_NO_COLOR_OK,30343c02|13,BOID sem cor validado via catalog/lookup: 389312
+INFO,BRICKOWL_BOID_NO_COLOR_OK,30463c01|54,BOID sem cor validado via catalog/lookup: 1283821
+INFO,BRICKOWL_BOID_NO_COLOR_OK,30614|17,BOID sem cor validado via catalog/lookup: 275526
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3068px5|13,BOID sem cor validado via catalog/lookup: 306433
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3069px11|38,BOID sem cor validado via catalog/lookup: 1123
+INFO,BRICKOWL_BOID_NO_COLOR_OK,31000pb26|70,BOID sem cor validado via catalog/lookup: 855361
+INFO,BRICKOWL_BOID_NO_COLOR_OK,31000pb33|70,BOID sem cor validado via catalog/lookup: 172297
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3116pls02|93,BOID sem cor validado via catalog/lookup: 885306
+INFO,BRICKOWL_BOID_NO_COLOR_OK,31193pb07|38,BOID sem cor validado via catalog/lookup: 79956
+INFO,BRICKOWL_BOID_NO_COLOR_OK,31216c01pb01|39,BOID sem cor validado via catalog/lookup: 721666
+INFO,BRICKOWL_BOID_NO_COLOR_OK,31216c02pb01|81,BOID sem cor validado via catalog/lookup: 766632
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3139|13,BOID sem cor validado via catalog/lookup: 642935
+INFO,BRICKOWL_BOID_NO_COLOR_OK,31895pb02|44,BOID sem cor validado via catalog/lookup: 278527
+INFO,BRICKOWL_BOID_NO_COLOR_OK,32171pb059|93,BOID sem cor validado via catalog/lookup: 319207
+INFO,BRICKOWL_BOID_NO_COLOR_OK,32171pb060|38,BOID sem cor validado via catalog/lookup: 858474
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3245b|17,BOID sem cor validado via catalog/lookup: 327264
+INFO,BRICKOWL_BOID_NO_COLOR_OK,32534|121,BOID sem cor validado via catalog/lookup: 856595
+INFO,BRICKOWL_BOID_NO_COLOR_OK,32535|121,BOID sem cor validado via catalog/lookup: 18301
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3298pb026|75,BOID sem cor validado via catalog/lookup: 250908
+INFO,BRICKOWL_BOID_NO_COLOR_OK,33021|77,BOID sem cor validado via catalog/lookup: 772385
+INFO,BRICKOWL_BOID_NO_COLOR_OK,33031|75,BOID sem cor validado via catalog/lookup: 899686
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3308|75,BOID sem cor validado via catalog/lookup: 426332
+INFO,BRICKOWL_BOID_NO_COLOR_OK,33217|96,BOID sem cor validado via catalog/lookup: 929352
+INFO,BRICKOWL_BOID_NO_COLOR_OK,33227|75,BOID sem cor validado via catalog/lookup: 745842
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3491|13,BOID sem cor validado via catalog/lookup: 224813
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3622|2,BOID sem cor validado via catalog/lookup: 367537
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3626pb1426|93,BOID sem cor validado via catalog/lookup: 866886
+INFO,BRICKOWL_BOID_NO_COLOR_OK,36876|97,BOID sem cor validado via catalog/lookup: 845261
+INFO,BRICKOWL_BOID_NO_COLOR_OK,36970a|45,BOID sem cor validado via catalog/lookup: 525258
+INFO,BRICKOWL_BOID_NO_COLOR_OK,36970b|45,BOID sem cor validado via catalog/lookup: 1008811
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3700|8,BOID sem cor validado via catalog/lookup: 64503
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3710|8,BOID sem cor validado via catalog/lookup: 515555
+INFO,BRICKOWL_BOID_NO_COLOR_OK,37779c03|92,BOID sem cor validado via catalog/lookup: 254549
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3794a|8,BOID sem cor validado via catalog/lookup: 232955
+INFO,BRICKOWL_BOID_NO_COLOR_OK,38153|38,BOID sem cor validado via catalog/lookup: 296121
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3957|101,BOID sem cor validado via catalog/lookup: 239363
+INFO,BRICKOWL_BOID_NO_COLOR_OK,3966|38,BOID sem cor validado via catalog/lookup: 291261
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4066|67,BOID sem cor validado via catalog/lookup: 781896
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4066pb016|67,BOID sem cor validado via catalog/lookup: 473487
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4066pb113|41,BOID sem cor validado via catalog/lookup: 534228
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4066pb891|241,BOID sem cor validado via catalog/lookup: 11540
+INFO,BRICKOWL_BOID_NO_COLOR_OK,40709|61,BOID sem cor validado via catalog/lookup: 298735
+INFO,BRICKOWL_BOID_NO_COLOR_OK,41145c02|53,BOID sem cor validado via catalog/lookup: 551141
+INFO,BRICKOWL_BOID_NO_COLOR_OK,41148c01|53,BOID sem cor validado via catalog/lookup: 866905
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4182|183,BOID sem cor validado via catalog/lookup: 158665
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4198pb76|93,BOID sem cor validado via catalog/lookup: 1129663
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42023|179,BOID sem cor validado via catalog/lookup: 405572
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42042bo|185,BOID sem cor validado via catalog/lookup: 819483
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42042ca|185,BOID sem cor validado via catalog/lookup: 807366
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42042ja|185,BOID sem cor validado via catalog/lookup: 152663
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42042su|185,BOID sem cor validado via catalog/lookup: 52228
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42042vu|185,BOID sem cor validado via catalog/lookup: 886347
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42042xa|185,BOID sem cor validado via catalog/lookup: 765840
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42042yo|185,BOID sem cor validado via catalog/lookup: 237103
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42042za|185,BOID sem cor validado via catalog/lookup: 862870
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42332|75,BOID sem cor validado via catalog/lookup: 998451
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42334|75,BOID sem cor validado via catalog/lookup: 375936
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42337|75,BOID sem cor validado via catalog/lookup: 912285
+INFO,BRICKOWL_BOID_NO_COLOR_OK,42450|38,BOID sem cor validado via catalog/lookup: 735093
+WARN,BO_COLOR_ID_MISMATCH_FIXUP,43066|66,bo_color_id DB=122 difere do mapeamento BL->BO=0; a usar mapeamento.
+INFO,BRICKOWL_BOID_NO_COLOR_OK,43066|0,BOID sem cor validado via catalog/lookup: 432223
+WARN,BO_COLOR_ID_MISMATCH_FIXUP,43887|66,bo_color_id DB=122 difere do mapeamento BL->BO=0; a usar mapeamento.
+INFO,BRICKOWL_BOID_NO_COLOR_OK,43887|0,BOID sem cor validado via catalog/lookup: 648628
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4440|48,BOID sem cor validado via catalog/lookup: 989328
+INFO,BRICKOWL_BOID_NO_COLOR_OK,44514pb01|75,BOID sem cor validado via catalog/lookup: 206466
+WARN,BO_COLOR_ID_MISMATCH_FIXUP,44536|66,bo_color_id DB=122 difere do mapeamento BL->BO=0; a usar mapeamento.
+INFO,BRICKOWL_BOID_NO_COLOR_OK,44536|0,BOID sem cor validado via catalog/lookup: 147140
+WARN,BO_COLOR_ID_MISMATCH_FIXUP,44594|66,bo_color_id DB=122 difere do mapeamento BL->BO=0; a usar mapeamento.
+INFO,BRICKOWL_BOID_NO_COLOR_OK,44594|0,BOID sem cor validado via catalog/lookup: 280401
+INFO,BRICKOWL_BOID_NO_COLOR_OK,44621|3,BOID sem cor validado via catalog/lookup: 549551
+INFO,BRICKOWL_BOID_NO_COLOR_OK,44709|124,BOID sem cor validado via catalog/lookup: 283677
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4495a|64,BOID sem cor validado via catalog/lookup: 723846
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4495a|55,BOID sem cor validado via catalog/lookup: 723846
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4495a|46,BOID sem cor validado via catalog/lookup: 723846
+INFO,BRICKOWL_BOID_NO_COLOR_OK,45024pb02|75,BOID sem cor validado via catalog/lookup: 537970
+INFO,BRICKOWL_BOID_NO_COLOR_OK,46192|126,BOID sem cor validado via catalog/lookup: 807651
+INFO,BRICKOWL_BOID_NO_COLOR_OK,46281c01|40,BOID sem cor validado via catalog/lookup: 838702
+INFO,BRICKOWL_BOID_NO_COLOR_OK,46576pls|107,BOID sem cor validado via catalog/lookup: 517242
+INFO,BRICKOWL_BOID_NO_COLOR_OK,46582pls|107,BOID sem cor validado via catalog/lookup: 485528
+INFO,BRICKOWL_BOID_NO_COLOR_OK,46589c02|25,BOID sem cor validado via catalog/lookup: 912548
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4728pb01|75,BOID sem cor validado via catalog/lookup: 461863
+INFO,BRICKOWL_BOID_NO_COLOR_OK,47404|101,BOID sem cor validado via catalog/lookup: 410766
+INFO,BRICKOWL_BOID_NO_COLOR_OK,47438c01pb02|80,BOID sem cor validado via catalog/lookup: 960577
+INFO,BRICKOWL_BOID_NO_COLOR_OK,47674|161,BOID sem cor validado via catalog/lookup: 468575
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4839|67,BOID sem cor validado via catalog/lookup: 131729
+INFO,BRICKOWL_BOID_NO_COLOR_OK,48448|105,BOID sem cor validado via catalog/lookup: 998803
+INFO,BRICKOWL_BOID_NO_COLOR_OK,4904|67,BOID sem cor validado via catalog/lookup: 345782
+INFO,BRICKOWL_BOID_NO_COLOR_OK,49265c01|88,BOID sem cor validado via catalog/lookup: 620689
+INFO,BRICKOWL_BOID_NO_COLOR_OK,49814pb01|9,BOID sem cor validado via catalog/lookup: 81049
+INFO,BRICKOWL_BOID_NO_COLOR_OK,50624|120,BOID sem cor validado via catalog/lookup: 683578
+INFO,BRICKOWL_BOID_NO_COLOR_OK,50689pb01|81,BOID sem cor validado via catalog/lookup: 1219519
+INFO,BRICKOWL_BOID_NO_COLOR_OK,50689pb02|93,BOID sem cor validado via catalog/lookup: 992037
+WARN,BO_COLOR_ID_MISMATCH_FIXUP,51289pb01|66,bo_color_id DB=122 difere do mapeamento BL->BO=0; a usar mapeamento.
+INFO,BRICKOWL_BOID_NO_COLOR_OK,51289pb01|0,BOID sem cor validado via catalog/lookup: 22556
+INFO,BRICKOWL_BOID_NO_COLOR_OK,51342pb01|56,BOID sem cor validado via catalog/lookup: 151524
+INFO,BRICKOWL_BOID_NO_COLOR_OK,51703pb01|80,BOID sem cor validado via catalog/lookup: 973592
+INFO,BRICKOWL_BOID_NO_COLOR_OK,52189c03|64,BOID sem cor validado via catalog/lookup: 43424
+INFO,BRICKOWL_BOID_NO_COLOR_OK,522cpb05|81,BOID sem cor validado via catalog/lookup: 754437
+INFO,BRICKOWL_BOID_NO_COLOR_OK,522pb001|93,BOID sem cor validado via catalog/lookup: 678946
+INFO,BRICKOWL_BOID_NO_COLOR_OK,522pb003|56,BOID sem cor validado via catalog/lookup: 989496
+INFO,BRICKOWL_BOID_NO_COLOR_OK,522pb010|85,BOID sem cor validado via catalog/lookup: 985038
+INFO,BRICKOWL_BOID_NO_COLOR_OK,53657pb01|114,BOID sem cor validado via catalog/lookup: 911023
+INFO,BRICKOWL_BOID_NO_COLOR_OK,53666|107,BOID sem cor validado via catalog/lookup: 33956
+INFO,BRICKOWL_BOID_NO_COLOR_OK,53980pb03|43,BOID sem cor validado via catalog/lookup: 414529
+INFO,BRICKOWL_BOID_NO_COLOR_OK,54031pb01|126,BOID sem cor validado via catalog/lookup: 931164
+INFO,BRICKOWL_BOID_NO_COLOR_OK,54169|24,BOID sem cor validado via catalog/lookup: 560954
+INFO,BRICKOWL_BOID_NO_COLOR_OK,54173|24,BOID sem cor validado via catalog/lookup: 559990
+INFO,BRICKOWL_BOID_NO_COLOR_OK,54252|93,BOID sem cor validado via catalog/lookup: 175674
+INFO,BRICKOWL_BOID_NO_COLOR_OK,54300cx4|7,BOID sem cor validado via catalog/lookup: 200483
+INFO,BRICKOWL_BOID_NO_COLOR_OK,5446pb01|92,BOID sem cor validado via catalog/lookup: 86920
+INFO,BRICKOWL_BOID_NO_COLOR_OK,54701c03|80,BOID sem cor validado via catalog/lookup: 703396
+INFO,BRICKOWL_BOID_NO_COLOR_OK,54821pb04|93,BOID sem cor validado via catalog/lookup: 69156
+INFO,BRICKOWL_BOID_NO_COLOR_OK,55206c05|64,BOID sem cor validado via catalog/lookup: 202535
+INFO,BRICKOWL_BOID_NO_COLOR_OK,57548pb02|128,BOID sem cor validado via catalog/lookup: 887768
+INFO,BRICKOWL_BOID_NO_COLOR_OK,57562pb01|128,BOID sem cor validado via catalog/lookup: 230868
+INFO,BRICKOWL_BOID_NO_COLOR_OK,5845pls01|93,BOID sem cor validado via catalog/lookup: 394128
+INFO,BRICKOWL_BOID_NO_COLOR_OK,5846pls01|75,BOID sem cor validado via catalog/lookup: 744848
+INFO,BRICKOWL_BOID_NO_COLOR_OK,5861foam01|61,BOID sem cor validado via catalog/lookup: 203519
+INFO,BRICKOWL_BOID_NO_COLOR_OK,5862foam01|41,BOID sem cor validado via catalog/lookup: 159609
+INFO,BRICKOWL_BOID_NO_COLOR_OK,5941pls02|80,BOID sem cor validado via catalog/lookup: 721702
+INFO,BRICKOWL_BOID_NO_COLOR_OK,59595c00pb36|43,BOID sem cor validado via catalog/lookup: 1373489
+INFO,BRICKOWL_BOID_NO_COLOR_OK,5990pb01|120,BOID sem cor validado via catalog/lookup: 888690
+INFO,BRICKOWL_BOID_NO_COLOR_OK,5990pb03|47,BOID sem cor validado via catalog/lookup: 966314
+INFO,BRICKOWL_BOID_NO_COLOR_OK,5990pb05|64,BOID sem cor validado via catalog/lookup: 155182
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60036stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60036stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60041stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60041stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60042stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60042stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60043stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60043stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60044stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60044stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60045stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60045stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60046stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60046stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60047stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60047stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60048stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60048stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60049stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60049stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60050stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60050stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60050stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60050stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60051stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60051stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60052stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60052stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60053stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60053stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60055stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60055stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60056stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60056stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60056stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60056stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60057stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60057stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60058stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60058stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60058stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60058stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60059stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60059stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60059stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60059stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60060stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60060stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60061stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60061stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60061stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60061stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60062stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60062stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60064stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60064stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60068stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60068stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60071stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60071stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60080stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60080stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60080stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60080stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60082stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60082stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60082stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60082stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60083stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60083stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60085stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60085stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60092stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60092stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60092stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60092stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60093stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60093stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60093stk02,id_lookup devolveu 0 BOIDs para bl_item_no=60093stk02 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60095stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60095stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60095stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60095stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60096stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60096stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60097stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60097stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60097stk02a,id_lookup devolveu 0 BOIDs para bl_item_no=60097stk02a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60097stk02b,id_lookup devolveu 0 BOIDs para bl_item_no=60097stk02b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60097stk03a,id_lookup devolveu 0 BOIDs para bl_item_no=60097stk03a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60097stk03b,id_lookup devolveu 0 BOIDs para bl_item_no=60097stk03b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60098stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60098stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60098stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60098stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60102stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60102stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60102stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60102stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60103stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60103stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60104stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60104stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60104stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60104stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60107stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60107stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60107stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60107stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60108stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60108stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60108stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60108stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60109stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60109stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60110stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60110stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60111stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60111stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60111stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60111stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60112stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60112stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60112stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60112stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60113stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60113stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60113stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60113stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60114stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60114stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60114stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60114stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60115stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60115stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60115stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60115stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60116stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60116stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60117stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60117stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60117stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60117stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60118stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60118stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60119stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60119stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60119stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60119stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60122stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60122stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60123stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60123stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60124stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60124stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60124stk01b,id_lookup devolveu 0 BOIDs para bl_item_no=60124stk01b (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60130stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60130stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60137stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60137stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60138stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60138stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60139stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60139stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60142stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60142stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60143stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60143stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60144stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60144stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60147stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=60147stk01a (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60150stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60150stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60151stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60151stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60154stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60154stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60158stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60158stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60159stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60159stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60160stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60160stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60161stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60161stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60162stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60162stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60164stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60164stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60166stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60166stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60168stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60168stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60169stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60169stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60170stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60170stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60172stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60172stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60173stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60173stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60174stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60174stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60175stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60175stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60176stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60176stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60177stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60177stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60178stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60178stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60179stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60179stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60180stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60180stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60181stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60181stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60182stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60182stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60183stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60183stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60185stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60185stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60186stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60186stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60192stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60192stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60193stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60193stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60194stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60194stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60195stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60195stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60196stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60196stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60197stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60197stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60198stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60198stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60200stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60200stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60203stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60203stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60204stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60204stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60207stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60207stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60208stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60208stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60209stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60209stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60210stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60210stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60214stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60214stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60215stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60215stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60216stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60216stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60217stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60217stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60218stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60218stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60219stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60219stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60221stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60221stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60222stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60222stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60223stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60223stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60224stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60224stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60225stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60225stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60226stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60226stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60227stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60227stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60228stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60228stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60229stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60229stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60231stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60231stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60233stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60233stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60236pb02,id_lookup devolveu 0 BOIDs para bl_item_no=60236pb02
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60239stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60239stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60240stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60240stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60242stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60242stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60243stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60243stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60244stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60244stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60245stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60245stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60246stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60246stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60248stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60248stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60253stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60253stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60254stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60254stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60256stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60256stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60257stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60257stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60258stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60258stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60260stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60260stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60262stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60262stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60264stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60264stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60265stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60265stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60266stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60266stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60267stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60267stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60271stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60271stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60272stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60272stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60273stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60273stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60274stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60274stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60276stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60276stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60277stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60277stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60281stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60281stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60282stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60282stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60283stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60283stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60288stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60288stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60289stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60289stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60290stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60290stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60291stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60291stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60292stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60292stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60295stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60295stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60297pb01,id_lookup devolveu 0 BOIDs para bl_item_no=60297pb01
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60305stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60305stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60313stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60313stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60314stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60314stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60315stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60315stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60316stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60316stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60319stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60319stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60320stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60320stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60321stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60321stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60321stk02,id_lookup devolveu 0 BOIDs para bl_item_no=60321stk02 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60324stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60324stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60328stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60328stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60329stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60329stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60330stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60330stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60335stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60335stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60336stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60336stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60337stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60337stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60339stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60339stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,6033stk01,id_lookup devolveu 0 BOIDs para bl_item_no=6033stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60343stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60343stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60347stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60347stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60348stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60348stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60349stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60349stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60350stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60350stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60350stk02,id_lookup devolveu 0 BOIDs para bl_item_no=60350stk02 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60351stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60351stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60351stk02,id_lookup devolveu 0 BOIDs para bl_item_no=60351stk02 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60357stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60357stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60362stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60362stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60363stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60363stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60364stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60364stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60365stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60365stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60366stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60366stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60367stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60367stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60368stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60368stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60369stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60369stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60371stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60371stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60372stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60372stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60373stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60373stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60374stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60374stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60378stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60378stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60379stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60379stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60380stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60380stk01
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60380stk02,id_lookup devolveu 0 BOIDs para bl_item_no=60380stk02
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60384stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60384stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60386stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60386stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60387stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60387stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60388stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60388stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60388stk02,id_lookup devolveu 0 BOIDs para bl_item_no=60388stk02 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60389stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60389stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60397stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60397stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60398stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60398stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60405stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60405stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60406stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60406stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60407stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60407stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60408stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60408stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60409stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60409stk01 (sem cor).
+WARN,BO_COLOR_ID_MISMATCH_FIXUP,6041|66,bo_color_id DB=122 difere do mapeamento BL->BO=0; a usar mapeamento.
+INFO,BRICKOWL_BOID_NO_COLOR_OK,6041|0,BOID sem cor validado via catalog/lookup: 165812
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60414stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60414stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60415stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60415stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60417stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60417stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60418stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60418stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60419stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60419stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60420stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60420stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60421stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60421stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60422stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60422stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60423stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60423stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60423stk02,id_lookup devolveu 0 BOIDs para bl_item_no=60423stk02 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60426stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60426stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60428stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60428stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60432stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60432stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60433stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60433stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60434stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60434stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60437stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60437stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60439stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60439stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60440stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60440stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60441stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60441stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60443stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60443stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60444stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60444stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60445stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60445stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60446stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60446stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60447stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60447stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60453stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60453stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60454stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60454stk01 (sem cor).
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,60457stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60457stk01 (sem cor).
+WARN,BO_COLOR_ID_MISMATCH_FIXUP,6046|66,bo_color_id DB=122 difere do mapeamento BL->BO=0; a usar mapeamento.
+INFO,BRICKOWL_BOID_NO_COLOR_OK,6046|0,BOID sem cor validado via catalog/lookup: 861387
+WARN,EARLY_EXIT_MAX_RUNTIME,,Paragem limpa por --max-runtime-seconds=1800 durante boid resolve.
+INFO,BOID_FINAL_STATE,,missing_boid=2443 no_bo_id=2090 needs_review=0
+WARN,DB_INCOMPLETE,,Ainda existem 2443 linhas com boid por preencher (NULL/''). Ver part_color_issues.csv.
+INFO,BRICKOWL_BOID_RESOLVE_DONE,,BOID resolve terminado. Updated_pairs=425/2815.
