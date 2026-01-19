@@ -36,7 +36,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import gzip
 import json
 import os
 import signal
@@ -175,155 +174,6 @@ def persist_brickowl_cache(cache_path: Path, cache: dict) -> None:
         filtered[k] = v
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(filtered, ensure_ascii=False), encoding='utf-8')
-
-
-# -----------------------------
-# Weights (BrickLink weight.xml)
-# -----------------------------
-
-def iter_weight_xml(weights_xml: Path) -> Iterable[Tuple[str, Optional[float], List[str]]]:
-    """Yield (bl_part_id, weight_g, alt_ids) from BrickLink weight.xml (.xml or .xml.gz).
-
-    Expected structure:
-      <ITEM>
-        <ITEMTYPE>P</ITEMTYPE>
-        <ITEMID>3001</ITEMID>
-        <ALTITEMIDS>...</ALTITEMIDS>
-        <ITEMWEIGHT>0.66</ITEMWEIGHT>
-      </ITEM>
-
-    Parsing is streaming (iterparse) to support very large files.
-    Weight is in grams (float) or None.
-    ALTITEMIDS can contain multiple IDs separated by commas/spaces.
-    """
-    import re
-
-    def _open_bin(path: Path):
-        if path.suffix.lower() == '.gz':
-            return gzip.open(path, 'rb')
-        return open(path, 'rb')
-
-    with _open_bin(weights_xml) as f:
-        ctx = ET.iterparse(f, events=("end",))
-        for _ev, elem in ctx:
-            if elem.tag != 'ITEM':
-                continue
-
-            itemtype = (elem.findtext('ITEMTYPE') or '').strip().upper()
-            if itemtype not in ('P', 'PART'):
-                elem.clear()
-                continue
-
-            itemid = (elem.findtext('ITEMID') or '').strip()
-            if not itemid:
-                elem.clear()
-                continue
-
-            wtxt = (elem.findtext('ITEMWEIGHT') or '').strip()
-            weight: Optional[float] = None
-            if wtxt:
-                try:
-                    weight = float(wtxt)
-                except Exception:
-                    weight = None
-
-            alt = (elem.findtext('ALTITEMIDS') or '').strip()
-            alt_ids: List[str] = []
-            if alt:
-                alt_ids = [a for a in re.split(r"[\s,;]+", alt) if a]
-
-            yield itemid, weight, alt_ids
-            elem.clear()
-
-
-def iter_weight_csv(weights_csv: Path) -> Iterable[Tuple[str, Optional[float]]]:
-    """Yield (bl_part_id, weight_g) from a compact CSV/CSV.GZ.
-
-    Expected header contains at least: bl_part_id, weight_g
-    """
-
-    def _open_text(path: Path):
-        if path.suffix.lower() == '.gz':
-            return gzip.open(path, 'rt', encoding='utf-8', newline='')
-        return open(path, 'r', encoding='utf-8', newline='')
-
-    with _open_text(weights_csv) as f:
-        r = csv.DictReader(f)
-        for row in r:
-            pid = (row.get('bl_part_id') or row.get('ITEMID') or row.get('itemid') or '').strip()
-            if not pid:
-                continue
-            wtxt = (row.get('weight_g') or row.get('ITEMWEIGHT') or row.get('itemweight') or '').strip()
-            weight: Optional[float] = None
-            if wtxt:
-                try:
-                    weight = float(wtxt)
-                except Exception:
-                    weight = None
-            yield pid, weight
-
-
-def apply_weights_to_db(con: sqlite3.Connection, add_issue, weights_path: Path, *, commit_every: int = 50000) -> None:
-    """Load weights and update part_color_map.weight_g.
-
-    Strategy:
-      - Stream-load into TEMP table weights_tmp(bl_part_id, weight_g)
-      - Apply one UPDATE join into part_color_map
-
-    This avoids loading the entire weights dataset into Python memory.
-    """
-    if not weights_path or not weights_path.exists():
-        add_issue('WARN', 'WEIGHTS_FILE_MISSING', '', f'weights file não encontrado: {weights_path}')
-        return
-
-    cur = con.cursor()
-    cur.execute('DROP TABLE IF EXISTS weights_tmp')
-    cur.execute('CREATE TEMP TABLE weights_tmp (bl_part_id TEXT PRIMARY KEY, weight_g REAL)')
-
-    inserted = 0
-    skipped = 0
-
-    def _put(pid: str, w: Optional[float]):
-        nonlocal inserted, skipped
-        if w is None:
-            skipped += 1
-            return
-        try:
-            cur.execute('INSERT OR REPLACE INTO weights_tmp(bl_part_id, weight_g) VALUES (?, ?)', (pid, float(w)))
-            inserted += 1
-        except Exception:
-            skipped += 1
-
-    try:
-        name = weights_path.name.lower()
-        is_csv = name.endswith('.csv') or name.endswith('.csv.gz')
-        if is_csv:
-            for pid, w in iter_weight_csv(weights_path):
-                _put(pid, w)
-                if inserted and inserted % commit_every == 0:
-                    con.commit()
-        else:
-            for pid, w, alt_ids in iter_weight_xml(weights_path):
-                _put(pid, w)
-                for a in alt_ids:
-                    _put(a, w)
-                if inserted and inserted % commit_every == 0:
-                    con.commit()
-
-        # Apply to main table
-        cur.execute(
-            """
-            UPDATE part_color_map
-               SET weight_g = (SELECT weight_g FROM weights_tmp WHERE weights_tmp.bl_part_id = part_color_map.bl_part_id)
-             WHERE bl_part_id IN (SELECT bl_part_id FROM weights_tmp)
-            """
-        )
-        updated = cur.rowcount if cur.rowcount is not None else 0
-        con.commit()
-        add_issue('INFO', 'WEIGHTS_APPLIED', '', f'weights applied: inserted={inserted:,} skipped={skipped:,} updated_rows={updated:,} file={weights_path.name}')
-    except Exception as e:
-        con.commit()
-        add_issue('WARN', 'WEIGHTS_APPLY_FAILED', '', f'Falha ao aplicar weights ({weights_path}): {e}')
 
 
 # -----------------------------
@@ -729,6 +579,7 @@ def resolve_boid_for_pair(
     *,
     country: str = "PT",
     validate_availability: bool = False,
+    on_variants_seeded: Optional[callable] = None,
 ) -> Optional[str]:
     """Resolve BOID for (bl_part_id, bo_color_id) using the user's validated approach.
 
@@ -760,7 +611,7 @@ def resolve_boid_for_pair(
 
     if not boids:
         issues_add("WARN", "BRICKOWL_ID_LOOKUP_EMPTY", f"{bl_part_id}", f"id_lookup devolveu 0 BOIDs para bl_item_no={bl_part_id}")
-        return None
+        return "no_bo_id"
 
     # Prefer base without hyphen when available.
     try:
@@ -824,11 +675,56 @@ def resolve_boid_for_pair(
             )
             return str(alt)
 
+    # Fallback (user-defined): run id_lookup with NO color, validate candidates via lookup/bulk_lookup,
+    # extract real variant BOIDs and seed both cache and DB (via callback).
+    status, by_color, base_no_color = seed_boid_variants(
+        bo_api,
+        str(bl_part_id),
+        issues_add,
+        min_interval=0.10,
+    )
+
+    # Seed runtime cache for this run (helps subsequent pairs without re-calling API)
+    if by_color:
+        for cid, vb in by_color.items():
+            try:
+                bo_api.cache[f"boid_resolve:{bl_part_id}-{int(cid)}"] = str(vb)
+            except Exception:
+                pass
+
+    # Persist variants to DB if caller provided a callback
+    if on_variants_seeded is not None:
+        try:
+            on_variants_seeded(str(bl_part_id), dict(by_color or {}), base_no_color)
+        except Exception:
+            pass
+
+    # If BrickOwl has no mapping at all, mark stable outcome
+    if status == "empty":
+        return "no_bo_id"
+
+    # If we discovered the requested color, recover immediately
+    if by_color and int(bo_color_id) in by_color:
+        recovered = str(by_color[int(bo_color_id)])
+        bo_api.cache[cache_key] = recovered
+        issues_add(
+            "INFO",
+            "BRICKOWL_BOID_RECOVERED_BY_VARIANTS",
+            f"{bl_part_id}|{bo_color_id}",
+            f"Recuperado via variantes validadas: {recovered}",
+        )
+        return recovered
+
+    # Otherwise keep unresolved but provide the list of available BrickOwl colors for future fixups
+    avail = sorted(by_color.keys()) if by_color else []
+    preview = ",".join(str(x) for x in avail[:25])
+    more = "" if len(avail) <= 25 else f" (+{len(avail)-25}...)"
+
     issues_add(
         "WARN",
         "BRICKOWL_BOID_LOOKUP_INVALID",
         f"{bl_part_id}|{bo_color_id}",
-        f"Construído/selecionado '{boid_color}' mas catalog/lookup não validou (boids candidatos: {len(boids)}).",
+        f"Construído/selecionado '{boid_color}' mas catalog/lookup não validou (boids candidatos: {len(boids)}). Variantes validadas disponíveis (bo_color_id): [{preview}]{more}.",
     )
     return None
 
@@ -858,22 +754,12 @@ def init_db(db_path: Path) -> None:
           bl_color_id INTEGER,
           bo_color_id INTEGER,
           ldraw_color_id INTEGER,
-          weight_g REAL,
           boid TEXT,
           source TEXT,
           PRIMARY KEY (bl_part_id, element_id, bl_color_id)
         )
         """
     )
-
-    # Ensure schema evolution: add weight_g if missing (SQLite ignores file extension).
-    try:
-        cols2 = {row[1] for row in cur.execute("PRAGMA table_info(part_color_map)").fetchall()}
-        if "weight_g" not in cols2:
-            cur.execute("ALTER TABLE part_color_map ADD COLUMN weight_g REAL")
-            con.commit()
-    except Exception:
-        pass
 
     cur.execute(
         """
@@ -887,6 +773,19 @@ def init_db(db_path: Path) -> None:
         )
         """
     )
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS brickowl_variants (
+          boid TEXT PRIMARY KEY,
+          bl_part_id TEXT NOT NULL,
+          bo_color_id INTEGER,
+          ts INTEGER NOT NULL
+        )
+        """
+    )
+
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_brickowl_variants_part_color ON brickowl_variants(bl_part_id, bo_color_id)")
 
     con.commit()
     con.close()
@@ -952,9 +851,6 @@ def main() -> int:
     ap.add_argument("--bl-codes-xml")
     ap.add_argument("--rb-elements")
     ap.add_argument("--color-map")
-
-    # Optional weights mapping (BrickLink weight.xml or compact weights.csv.gz)
-    ap.add_argument("--weights-file", default="", help="Caminho para weight.xml(.gz) ou weights.csv(.gz); se fornecido, preenche weight_g.")
 
     # Outputs / DB (sempre necessários)
     ap.add_argument("--db", required=True)
@@ -1028,9 +924,15 @@ def main() -> int:
             "source",
         ],
     )
-    touch_with_header_csv(issues_csv, ["severity", "issue_type", "key", "details"])
-    if not error_log_path.exists():
-        error_log_path.write_text("", encoding="utf-8")
+    # Sempre limpar o CSV de issues no inicio do run (evita ficheiro antigo quando um run termina antes do export)
+    issues_csv.parent.mkdir(parents=True, exist_ok=True)
+    with issues_csv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["severity", "issue_type", "key", "details"])
+
+    # Sempre limpar o error log no inicio do run (este ficheiro e' para diagnostico do run atual)
+    error_log_path.parent.mkdir(parents=True, exist_ok=True)
+    error_log_path.write_text("", encoding="utf-8")
 
     # Open DB
     con = sqlite3.connect(str(db_path))
@@ -1053,6 +955,12 @@ def main() -> int:
     # Fresh rebuild only in build/all
     if mode in ("all", "build"):
         cur.execute("DELETE FROM part_color_map")
+        cur.execute("DELETE FROM build_issues")
+        con.commit()
+
+    # Sempre limpamos build_issues no inicio de runs que executam logica (all/build/boid),
+    # para que part_color_issues.csv reflita apenas o run atual.
+    if mode in ("all", "build", "boid"):
         cur.execute("DELETE FROM build_issues")
         con.commit()
 
@@ -1336,6 +1244,27 @@ def main() -> int:
                     cache=cache,
                 )
 
+                def persist_boid_variants(part_id: str, by_color: dict, base_no_color):
+                    """Persist validated BrickOwl variants into DB (brickowl_variants table).
+
+                    Stores: (boid, bl_part_id, bo_color_id, ts).
+                    This is used for diagnostics and future fixups, without altering the base mapping logic.
+                    """
+                    ts = int(time.time())
+                    try:
+                        for cid, vb in (by_color or {}).items():
+                            cur.execute(
+                                "INSERT OR REPLACE INTO brickowl_variants(boid, bl_part_id, bo_color_id, ts) VALUES (?,?,?,?)",
+                                (str(vb), str(part_id), int(cid), ts),
+                            )
+                        if base_no_color:
+                            cur.execute(
+                                "INSERT OR REPLACE INTO brickowl_variants(boid, bl_part_id, bo_color_id, ts) VALUES (?,?,?,?)",
+                                (str(base_no_color), str(part_id), None, ts),
+                            )
+                    except Exception:
+                        pass
+
                 rows_pairs = cur.execute(
                     """
                     SELECT DISTINCT bl_part_id, bl_color_id, bo_color_id
@@ -1396,14 +1325,54 @@ def main() -> int:
                             bo_color_id_eff = int(bo_color_id_db)
                         except Exception:
                             bo_color_id_eff = None
-
                     if bo_color_id_eff is None:
-                        add_issue(
-                            "WARN",
-                            "BRICKOWL_BO_COLOR_ID_MISSING",
-                            str(bl_part_id),
-                            "Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).",
-                        )
+                        # User rule: try id_lookup without forcing a color to recover BOID,
+                        # and accept bo_color_id as NULL when the item truly has no color.
+                        try:
+                            res = resolve_boid_without_color(
+                                bo_api,
+                                str(bl_part_id),
+                                add_issue,
+                                country=str(args.boid_country),
+                                validate_availability=bool(args.boid_validate_availability),
+                            )
+                        except Exception as e:
+                            add_issue("WARN", "BRICKOWL_NO_COLOR_RESOLVE_FAILED", str(bl_part_id), f"Falha fallback sem cor: {e}")
+                            res = None
+
+                        if not res:
+                            add_issue("WARN", "BRICKOWL_BO_COLOR_ID_MISSING", str(bl_part_id), "Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).")
+                            continue
+
+                        boid_nc, inferred_bo_color = res
+                        if boid_nc == "no_bo_id":
+                            # Stable outcome: no BrickOwl mapping
+                            if blc is not None:
+                                cur.execute(
+                                    "UPDATE part_color_map SET boid=?, bo_color_id=?, source=? WHERE bl_part_id=? AND bl_color_id=?",
+                                    ("no_bo_id", None, "NO_BO_ID", str(bl_part_id), int(blc)),
+                                )
+                            else:
+                                cur.execute(
+                                    "UPDATE part_color_map SET boid=?, bo_color_id=?, source=? WHERE bl_part_id=? AND (bl_color_id IS NULL)",
+                                    ("no_bo_id", None, "NO_BO_ID", str(bl_part_id)),
+                                )
+                            updated += 1
+                            continue
+
+                        # Accept BOID even if inferred color is None (no-color item)
+                        src = "NO_COLOR" if inferred_bo_color is None else None
+                        if blc is not None:
+                            cur.execute(
+                                "UPDATE part_color_map SET boid=?, bo_color_id=?, source=COALESCE(?, source) WHERE bl_part_id=? AND bl_color_id=?",
+                                (str(boid_nc), inferred_bo_color, src, str(bl_part_id), int(blc)),
+                            )
+                        else:
+                            cur.execute(
+                                "UPDATE part_color_map SET boid=?, bo_color_id=?, source=COALESCE(?, source) WHERE bl_part_id=? AND (bl_color_id IS NULL)",
+                                (str(boid_nc), inferred_bo_color, src, str(bl_part_id)),
+                            )
+                        updated += 1
                         continue
 
                     try:
@@ -1414,21 +1383,30 @@ def main() -> int:
                             add_issue,
                             country=str(args.boid_country),
                             validate_availability=bool(args.boid_validate_availability),
+                            on_variants_seeded=persist_boid_variants,
                         )
                     except Exception as e:
                         add_issue("WARN", "BRICKOWL_BOID_RESOLVE_FAILED", f"{bl_part_id}|{bo_color_id_eff}", f"Falha boid resolve: {e}")
                         boid = None
 
                     if boid:
+                        # Stable sentinel: no BrickOwl mapping
+                        if str(boid) == 'no_bo_id':
+                            src = 'NO_BO_ID'
+                            bo_eff = None
+                        else:
+                            src = None
+                            bo_eff = int(bo_color_id_eff)
+
                         if blc is not None:
                             cur.execute(
-                                "UPDATE part_color_map SET boid=?, bo_color_id=? WHERE bl_part_id=? AND bl_color_id=?",
-                                (str(boid), int(bo_color_id_eff), str(bl_part_id), int(blc)),
+                                "UPDATE part_color_map SET boid=?, bo_color_id=?, source=COALESCE(?, source) WHERE bl_part_id=? AND bl_color_id=?",
+                                (str(boid), bo_eff, src, str(bl_part_id), int(blc)),
                             )
                         else:
                             cur.execute(
-                                "UPDATE part_color_map SET boid=?, bo_color_id=? WHERE bl_part_id=? AND bo_color_id=? AND (bl_color_id IS NULL)",
-                                (str(boid), int(bo_color_id_eff), str(bl_part_id), int(bo_color_id_eff)),
+                                "UPDATE part_color_map SET boid=?, bo_color_id=?, source=COALESCE(?, source) WHERE bl_part_id=? AND (bl_color_id IS NULL)",
+                                (str(boid), bo_eff, src, str(bl_part_id)),
                             )
                         updated += 1
 
@@ -1460,39 +1438,16 @@ def main() -> int:
                 con.commit()
 
         # -----------------
-        # Apply weights (optional)
-        # -----------------
-        if args.weights_file and mode in ("all", "build", "boid"):
-            try:
-                weights_path = Path(args.weights_file)
-                if mode == "boid":
-                    missing_w = cur.execute("SELECT COUNT(1) FROM part_color_map WHERE weight_g IS NULL").fetchone()[0]
-                    if missing_w == 0:
-                        print("[WEIGHTS] skip (weight_g já preenchido)")
-                    else:
-                        print(f"[WEIGHTS] applying weights from: {weights_path} (missing={missing_w:,})")
-                        apply_weights_to_db(con, add_issue, weights_path)
-                        con.commit()
-                else:
-                    print(f"[WEIGHTS] applying weights from: {weights_path}")
-                    apply_weights_to_db(con, add_issue, weights_path)
-                    con.commit()
-            except Exception as e:
-                add_issue("WARN", "WEIGHTS_APPLY_FAILED", "", f"Falha ao aplicar weights: {e}")
-                con.commit()
-
-
-        # -----------------
         # Export CSVs
         # -----------------
         if mode in ("all", "build", "boid", "export"):
             print("[EXPORT] part_color_map.csv...")
             with out_csv.open("w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
-                w.writerow(["bl_part_id", "element_id", "rb_part_num", "rb_color_id", "bl_color_id", "bo_color_id", "ldraw_color_id", "weight_g", "boid", "source"])
+                w.writerow(["bl_part_id", "element_id", "rb_part_num", "rb_color_id", "bl_color_id", "bo_color_id", "ldraw_color_id", "boid", "source"])
                 for row in cur.execute(
                     """
-                    SELECT bl_part_id, element_id, rb_part_num, rb_color_id, bl_color_id, bo_color_id, ldraw_color_id, weight_g, boid, source
+                    SELECT bl_part_id, element_id, rb_part_num, rb_color_id, bl_color_id, bo_color_id, ldraw_color_id, boid, source
                     FROM part_color_map
                     ORDER BY bl_part_id, element_id, bl_color_id
                     """
@@ -1546,6 +1501,11 @@ def main() -> int:
     finally:
         try:
             con.commit()
+            try:
+                # Force DB file to be updated even if WAL is used
+                con.execute('PRAGMA wal_checkpoint(FULL)')
+            except Exception:
+                pass
             con.close()
         except Exception:
             pass
