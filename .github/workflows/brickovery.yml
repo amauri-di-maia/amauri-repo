@@ -181,7 +181,7 @@ jobs:
           set -euo pipefail
           mkdir -p data "data base"
 
-          MODE=build
+          MODE=all
 
           EXTRA=""
           if [ "${MODE}" = "all" ]; then
