@@ -1,8 +1,1 @@
 severity,issue_type,key,details
-WARN,BL_COLOR_TO_BO_COLOR_CONFLICT,66,bl_color_id=66 mapped to multiple bo_color_id: 0 vs 122
-WARN,BL_COLOR_TO_BO_COLOR_CONFLICT,121,bl_color_id=121 mapped to multiple bo_color_id: 104 vs 162
-WARN,BL_COLOR_TO_BO_COLOR_CONFLICT,74,bl_color_id=74 mapped to multiple bo_color_id: 102 vs 163
-INFO,BRICKOWL_BOID_RESOLVE_START,,"A resolver BOID para 0 pares (part,cor)."
-INFO,BOID_FINAL_STATE,,missing_boid=0 no_bo_id=4196 needs_review=0
-INFO,DB_COMPLETE,,Sem campos BOID por preencher (boid NULL/'').
-INFO,BRICKOWL_BOID_RESOLVE_DONE,,BOID resolve terminado. Updated_pairs=0/0.
