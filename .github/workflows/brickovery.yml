@@ -10,6 +10,9 @@ concurrency:
   group: brickovery-rebuild
   cancel-in-progress: false
 
+permissions:
+  contents: write
+
 jobs:
   make_colors:
     name: Make colors (RB->BL)
@@ -39,7 +42,7 @@ jobs:
           test -f inputs/rebrickable/colors.csv
           test -f inputs/rebrickable/elements.csv
           test -f inputs/colors_seed.csv
-          mkdir -p data
+          mkdir -p data "data base"
           echo "✅ Inputs OK"
 
       - name: Build color_map.csv
@@ -52,7 +55,7 @@ jobs:
           BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
         run: |
           set -euo pipefail
-          mkdir -p data
+          mkdir -p data "data base"
           python brickovery_make_colors.py \
             --bl-colors-xml inputs/bricklink/colors.xml \
             --bl-codes-xml inputs/bricklink/codes.xml \
@@ -101,7 +104,7 @@ jobs:
 
       - name: Prepare workspace
         run: |
-          mkdir -p data
+          mkdir -p data "data base"
           rm -rf _artifact_colors
           mkdir -p _artifact_colors
 
@@ -109,7 +112,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            data/brickovery.db*
+            data base/brickovery.db*
             data/brickowl_api_cache.json
             data/build_checkpoint.json
           key: brickovery-progress-${{ github.run_id }}
@@ -176,12 +179,9 @@ jobs:
           BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
         run: |
           set -euo pipefail
-          mkdir -p data
+          mkdir -p data "data base"
 
           MODE=all
-          if [ -f data/brickovery.db ]; then
-            MODE=boid
-          fi
 
           EXTRA=""
           if [ "${MODE}" = "all" ]; then
@@ -190,46 +190,42 @@ jobs:
 
           echo "Running brickovery.py in mode=${MODE}"
 
-          # Optional: weights mapping (prefer compact CSV.GZ; fallback to weight.xml(.gz) if present)
-          WEIGHTS_ARG=""
-          if [ -f data/weights.csv.gz ]; then
-            WEIGHTS_ARG="--weights-file data/weights.csv.gz"
-          elif [ -f data/weights.csv ]; then
-            WEIGHTS_ARG="--weights-file data/weights.csv"
-          elif [ -f inputs/bricklink/weight.xml.gz ]; then
-            WEIGHTS_ARG="--weights-file inputs/bricklink/weight.xml.gz"
-          elif [ -f inputs/bricklink/weight.xml ]; then
-            WEIGHTS_ARG="--weights-file inputs/bricklink/weight.xml"
-          fi
-          if [ -n "${WEIGHTS_ARG}" ]; then
-            echo "Using weights: ${WEIGHTS_ARG}"
-          else
-            echo "No weights file found; weight_g ficará NULL."
-          fi
-
           python brickovery.py \
             --mode "${MODE}" \
             --bl-codes-xml inputs/bricklink/codes.xml \
             --rb-elements inputs/rebrickable/elements.csv \
             --color-map data/color_map.csv \
-            --db data/brickovery.db \
+            --db "data base/brickovery.db" \
             --out-csv data/part_color_map.csv \
             --issues data/part_color_issues.csv \
             --resolve-boid \
             --boid-cache-json data/brickowl_api_cache.json \
             --boid-min-interval 0.10 \
-            --boid-commit-every 200 \
-            --max-runtime-seconds 1800 \
-            ${WEIGHTS_ARG} \
+            --boid-commit-every 10 \
             ${EXTRA}
 
+
+      - name: Commit outputs to repo
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data || true
+          git add -f "data base/brickovery.db" || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Brickovery: update outputs"
+            git push
+          fi
       - name: Upload build artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: brickovery-build
           path: |
-            data/brickovery.db
+            data base/brickovery.db
             data/part_color_map.csv
             data/part_color_issues.csv
             data/brickowl_api_cache.json
