@@ -1,5 +1,8 @@
 name: Brickovery - Rebuild DB
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   schedule:
@@ -40,7 +43,7 @@ jobs:
           test -f inputs/rebrickable/elements.csv
           test -f inputs/colors_seed.csv
           mkdir -p data
-          echo "✅ Inputs OK"
+          echo "Inputs OK"
 
       - name: Build color_map.csv
         env:
@@ -82,11 +85,13 @@ jobs:
     name: Build DB + CSV (resume BOID)
     runs-on: ubuntu-latest
     needs: [make_colors]
-    timeout-minutes: 60
+    timeout-minutes: 360
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -101,7 +106,8 @@ jobs:
 
       - name: Prepare workspace
         run: |
-          mkdir -p data
+          set -euo pipefail
+          mkdir -p data "data base"
           rm -rf _artifact_colors
           mkdir -p _artifact_colors
 
@@ -109,7 +115,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            data/brickovery.db*
+            "data base/brickovery.db*"
             data/brickowl_api_cache.json
             data/build_checkpoint.json
           key: brickovery-progress-${{ github.run_id }}
@@ -125,16 +131,13 @@ jobs:
       - name: Materialize color_map into data/
         run: |
           set -euo pipefail
-          echo "=== find _artifact_colors ==="
-          find _artifact_colors -maxdepth 4 -type f -print | sort || true
-
           COLOR_MAP="$(find _artifact_colors -type f -name 'color_map.csv' | head -n 1 || true)"
           AUDIT="$(find _artifact_colors -type f -name 'color_map_audit.csv' | head -n 1 || true)"
           ISSUES="$(find _artifact_colors -type f -name 'color_map_issues.csv' | head -n 1 || true)"
           CACHE="$(find _artifact_colors -type f -name 'api_cache.json' | head -n 1 || true)"
 
           if [ -z "${COLOR_MAP}" ]; then
-            echo "::error::Artifact brickovery-colors não contém color_map.csv (ou não foi encontrado)."
+            echo "::error::Artifact brickovery-colors nao contem color_map.csv (ou nao foi encontrado)."
             exit 1
           fi
 
@@ -143,28 +146,24 @@ jobs:
           [ -n "${ISSUES}" ] && cp -f "${ISSUES}" data/color_map_issues.csv || true
           [ -n "${CACHE}" ] && cp -f "${CACHE}" data/api_cache.json || true
 
-          echo "=== ls data ==="
-          ls -la data || true
-
       - name: Preflight inputs (with clear errors)
         run: |
           set -euo pipefail
           check_file () {
             local f="$1"
             if [ ! -f "$f" ]; then
-              echo "::error file=$f::Ficheiro obrigatório em falta: $f"
+              echo "::error file=$f::Ficheiro obrigatorio em falta: $f"
               echo "Directory listing for $(dirname "$f"):"
               ls -la "$(dirname "$f")" || true
               exit 1
             fi
           }
 
-          # Mantemos estes checks porque no mode=all/build são necessários.
           check_file inputs/bricklink/codes.xml
           check_file inputs/rebrickable/elements.csv
           check_file data/color_map.csv
 
-          echo "✅ Inputs OK"
+          echo "Inputs OK"
 
       - name: Build DB + CSV (auto-resume)
         env:
@@ -176,10 +175,10 @@ jobs:
           BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
         run: |
           set -euo pipefail
-          mkdir -p data
+          mkdir -p data "data base"
 
           MODE=all
-          if [ -f data/brickovery.db ]; then
+          if [ -f "data base/brickovery.db" ]; then
             MODE=boid
           fi
 
@@ -195,15 +194,30 @@ jobs:
             --bl-codes-xml inputs/bricklink/codes.xml \
             --rb-elements inputs/rebrickable/elements.csv \
             --color-map data/color_map.csv \
-            --db data/brickovery.db \
+            --db "data base/brickovery.db" \
             --out-csv data/part_color_map.csv \
             --issues data/part_color_issues.csv \
             --resolve-boid \
             --boid-cache-json data/brickowl_api_cache.json \
             --boid-min-interval 0.10 \
-            --boid-commit-every 200 \
-            --max-runtime-seconds 3600 \
+            --boid-commit-every 10 \
+            --max-runtime-seconds 1800 \
             ${EXTRA}
+
+      - name: Commit outputs to repo
+        if: always()
+        run: |
+          set -euo pipefail
+          git status --porcelain
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A data "data base" || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update Brickovery outputs" || true
+            git push
+          fi
 
       - name: Upload build artifacts
         if: always()
@@ -211,11 +225,10 @@ jobs:
         with:
           name: brickovery-build
           path: |
-            data/brickovery.db
+            "data base/brickovery.db"
             data/part_color_map.csv
             data/part_color_issues.csv
             data/brickowl_api_cache.json
             data/build_checkpoint.json
             data/brickovery_build_error.log
           if-no-files-found: warn
-          
