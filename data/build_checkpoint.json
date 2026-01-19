@@ -1,9 +1,6 @@
 {
-  "ts": 1768833037,
-  "phase": "boid",
-  "mode": "all",
-  "boid_pairs_total": 82763,
-  "boid_pairs_done": 11600,
-  "boid_pairs_updated": 11293,
-  "elapsed_sec": 3547
+  "ts": 1768864276,
+  "phase": "crash",
+  "mode": "finalize",
+  "error": "no such column: weight_g"
 }
