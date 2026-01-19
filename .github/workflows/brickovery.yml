@@ -6,12 +6,12 @@ on:
     # GitHub Actions cron is always UTC (Lisboa: UTC in winter, UTC+1 in summer)
     - cron: "15 3 * * *"  # 03:15 UTC
 
+permissions:
+  contents: write
+
 concurrency:
   group: brickovery-rebuild
   cancel-in-progress: false
-
-permissions:
-  contents: write
 
 jobs:
   make_colors:
@@ -42,7 +42,7 @@ jobs:
           test -f inputs/rebrickable/colors.csv
           test -f inputs/rebrickable/elements.csv
           test -f inputs/colors_seed.csv
-          mkdir -p data "data base"
+          mkdir -p data
           echo "✅ Inputs OK"
 
       - name: Build color_map.csv
@@ -55,7 +55,7 @@ jobs:
           BRICKLINK_TOKEN_SECRET: ${{ secrets.BRICKLINK_TOKEN_SECRET }}
         run: |
           set -euo pipefail
-          mkdir -p data "data base"
+          mkdir -p data
           python brickovery_make_colors.py \
             --bl-colors-xml inputs/bricklink/colors.xml \
             --bl-codes-xml inputs/bricklink/codes.xml \
@@ -112,7 +112,6 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            data base/brickovery.db*
             data/brickowl_api_cache.json
             data/build_checkpoint.json
           key: brickovery-progress-${{ github.run_id }}
@@ -181,44 +180,61 @@ jobs:
           set -euo pipefail
           mkdir -p data "data base"
 
+          DB_PATH="data base/brickovery.db"
           MODE=all
+          REBUILD=""
+          if [ -f "${DB_PATH}" ]; then
+            MODE=finalize
+          else
+            # Primeira construção (quando a DB ainda não existe)
+            REBUILD="--rebuild"
+          fi
+
+          WEIGHTS=""
+          if [ -f data/weights.csv.gz ]; then
+            WEIGHTS="--weights-file data/weights.csv.gz"
+          fi
 
           EXTRA=""
           if [ "${MODE}" = "all" ]; then
             EXTRA="--debug-apis"
           fi
 
-          echo "Running brickovery.py in mode=${MODE}"
+          echo "Running brickovery.py mode=${MODE} db=${DB_PATH}"
 
           python brickovery.py \
             --mode "${MODE}" \
             --bl-codes-xml inputs/bricklink/codes.xml \
             --rb-elements inputs/rebrickable/elements.csv \
             --color-map data/color_map.csv \
-            --db "data base/brickovery.db" \
+            --db "${DB_PATH}" \
             --out-csv data/part_color_map.csv \
             --issues data/part_color_issues.csv \
             --resolve-boid \
             --boid-cache-json data/brickowl_api_cache.json \
             --boid-min-interval 0.10 \
-            --boid-commit-every 10 \
+            --boid-commit-every 50 \
+            --max-runtime-seconds 1800 \
+            ${WEIGHTS} \
+            ${REBUILD} \
             ${EXTRA}
-
-
-      - name: Commit outputs to repo
+      - name: Commit updated outputs
         if: always()
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f data || true
-          git add -f "data base/brickovery.db" || true
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Add outputs (inclui DB e CSVs)
+          git add -A data "data base/brickovery.db" "data base/brickovery.db-wal" "data base/brickovery.db-shm" || true
+
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Brickovery: update outputs"
+            git commit -m "Update brickovery outputs"
             git push
           fi
+
       - name: Upload build artifacts
         if: always()
         uses: actions/upload-artifact@v4
