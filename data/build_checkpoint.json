@@ -1,11 +1,9 @@
 {
-  "ts": 1768829233,
-  "phase": "done",
-  "mode": "build",
-  "processed": 106223,
-  "inserted": 106844,
-  "rows_db": 106835,
-  "errors": 0,
-  "warnings": 664,
-  "elapsed_sec": 50
+  "ts": 1768833037,
+  "phase": "boid",
+  "mode": "all",
+  "boid_pairs_total": 82763,
+  "boid_pairs_done": 11600,
+  "boid_pairs_updated": 11293,
+  "elapsed_sec": 3547
 }
