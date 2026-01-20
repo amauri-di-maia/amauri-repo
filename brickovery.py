@@ -35,7 +35,6 @@ Secrets (GitHub Actions env) devem estar configuradas assim no workflow:
 from __future__ import annotations
 
 import argparse
-import gzip
 import csv
 import json
 import os
@@ -156,6 +155,90 @@ def append_error_log(path: Path, msg: str) -> None:
         f.write(msg.rstrip() + "\n")
 
 
+
+def _open_maybe_gzip(path: Path):
+    return gzip.open if path.suffix.lower() == '.gz' else open
+
+
+def apply_weights_from_csv(con, cur, weights_csv: Path, *, overwrite: bool, add_issue) -> int:
+    """Apply part weights to part_color_map.weight.
+
+    Expected: a CSV (optionally .gz) with at least:
+      - bl_part_id (or compatible alias)
+      - weight (grams) (or compatible alias)
+
+    Default: only fills rows where weight IS NULL, unless overwrite=True.
+    Leaves NULL when no match exists in the CSV (as requested).
+
+    Returns number of updated rows (SQLite rowcount best-effort).
+    """
+    wp = Path(weights_csv)
+    if not wp.exists():
+        add_issue('WARN', 'WEIGHTS_FILE_MISSING', str(wp), f'weights file not found: {wp}')
+        return 0
+
+    opener = _open_maybe_gzip(wp)
+    updated = 0
+    batch = []
+    batch_size = 5000
+
+    # Header aliases (tolerant)
+    part_keys = {'bl_part_id','part_id','item_no','itemid','part'}
+    weight_keys = {'weight','weight_g','grams','g'}
+
+    try:
+        with opener(wp, 'rt', encoding='utf-8', newline='') as f:
+            reader = csv.DictReader(f)
+            if not reader.fieldnames:
+                add_issue('WARN', 'WEIGHTS_EMPTY', str(wp), 'weights file has no header/rows')
+                return 0
+
+            fn = {h.strip().lower(): h for h in reader.fieldnames if h}
+            part_col = next((fn[k] for k in fn.keys() if k in part_keys), None)
+            weight_col = next((fn[k] for k in fn.keys() if k in weight_keys), None)
+
+            if not part_col or not weight_col:
+                add_issue('WARN', 'WEIGHTS_BAD_HEADER', str(wp), f'weights header missing part/weight: {reader.fieldnames}')
+                return 0
+
+            for row in reader:
+                bl = (row.get(part_col) or '').strip()
+                ws = (row.get(weight_col) or '').strip()
+                if not bl or not ws:
+                    continue
+                # allow comma decimal
+                ws = ws.replace(',', '.')
+                try:
+                    wv = float(ws)
+                except Exception:
+                    continue
+                batch.append((wv, bl))
+                if len(batch) >= batch_size:
+                    if overwrite:
+                        cur.executemany('UPDATE part_color_map SET weight=? WHERE bl_part_id=?', batch)
+                    else:
+                        cur.executemany('UPDATE part_color_map SET weight=? WHERE bl_part_id=? AND weight IS NULL', batch)
+                    updated += cur.rowcount if cur.rowcount is not None else 0
+                    con.commit()
+                    batch.clear()
+
+        if batch:
+            if overwrite:
+                cur.executemany('UPDATE part_color_map SET weight=? WHERE bl_part_id=?', batch)
+            else:
+                cur.executemany('UPDATE part_color_map SET weight=? WHERE bl_part_id=? AND weight IS NULL', batch)
+            updated += cur.rowcount if cur.rowcount is not None else 0
+            con.commit()
+            batch.clear()
+
+        add_issue('INFO', 'WEIGHTS_APPLIED', str(wp), f'weights applied (updated_rows={updated})')
+        return updated
+
+    except Exception as e:
+        add_issue('WARN', 'WEIGHTS_APPLY_FAILED', str(wp), f'Falha a aplicar weights: {e}')
+        return updated
+
+
 def persist_brickowl_cache(cache_path: Path, cache: dict) -> None:
     """Persist BrickOwl cache to disk, filtering negative entries.
 
@@ -177,74 +260,7 @@ def persist_brickowl_cache(cache_path: Path, cache: dict) -> None:
     cache_path.write_text(json.dumps(filtered, ensure_ascii=False), encoding='utf-8')
 
 
-def apply_weights_from_file(cur, con, weights_path: Path, *, overwrite: bool, add_issue) -> int:
-    """Fill/update weight_g in part_color_map from weights.csv(.gz).
-
-    Expected columns (minimum):
-      - bl_part_id
-      - weight_g
-
-    Default behavior: only fill when weight_g IS NULL, unless overwrite=True.
-    Returns number of rows updated (best-effort).
-    """
-    wp = Path(weights_path)
-    if not wp.exists():
-        add_issue('WARN', 'WEIGHTS_FILE_MISSING', str(wp), f'weights file not found: {wp}')
-        return 0
-
-    # Open (supports .gz)
-    opener = gzip.open if wp.suffix.lower() == '.gz' else open
-    updated = 0
-    batch = []
-    batch_size = 5000
-
-    try:
-        with opener(wp, 'rt', encoding='utf-8', newline='') as f:
-            reader = csv.DictReader(f)
-            if not reader.fieldnames:
-                add_issue('WARN', 'WEIGHTS_EMPTY', str(wp), 'weights file has no header/rows')
-                return 0
-            fn = {h.strip().lower(): h for h in reader.fieldnames}
-            if 'bl_part_id' not in fn or 'weight_g' not in fn:
-                add_issue('WARN', 'WEIGHTS_BAD_HEADER', str(wp), f'weights header missing bl_part_id/weight_g: {reader.fieldnames}')
-                return 0
-
-            for row in reader:
-                bl = (row.get(fn['bl_part_id']) or '').strip()
-                wg = (row.get(fn['weight_g']) or '').strip()
-                if not bl or not wg:
-                    continue
-                try:
-                    wgf = float(wg)
-                except Exception:
-                    continue
-                batch.append((wgf, bl))
-                if len(batch) >= batch_size:
-                    if overwrite:
-                        cur.executemany('UPDATE part_color_map SET weight_g=? WHERE bl_part_id=?', batch)
-                    else:
-                        cur.executemany('UPDATE part_color_map SET weight_g=? WHERE bl_part_id=? AND weight_g IS NULL', batch)
-                    updated += cur.rowcount if cur.rowcount is not None else 0
-                    con.commit()
-                    batch.clear()
-
-        if batch:
-            if overwrite:
-                cur.executemany('UPDATE part_color_map SET weight_g=? WHERE bl_part_id=?', batch)
-            else:
-                cur.executemany('UPDATE part_color_map SET weight_g=? WHERE bl_part_id=? AND weight_g IS NULL', batch)
-            updated += cur.rowcount if cur.rowcount is not None else 0
-            con.commit()
-            batch.clear()
-
-        return updated
-
-    except Exception as e:
-        add_issue('WARN', 'WEIGHTS_APPLY_FAILED', str(wp), f'Falha a aplicar weights: {e}')
-        return updated
-
-
-# -----------------------------# -----------------------------
+# -----------------------------
 # Parsing inputs
 # -----------------------------
 
@@ -776,12 +792,24 @@ def init_db(db_path: Path) -> None:
           bl_color_id INTEGER,
           bo_color_id INTEGER,
           ldraw_color_id INTEGER,
+          weight REAL,
           boid TEXT,
           source TEXT,
           PRIMARY KEY (bl_part_id, element_id, bl_color_id)
         )
         """
     )
+
+    
+
+    # Ensure weight column exists (migration)
+    try:
+        cols2 = {row[1] for row in cur.execute("PRAGMA table_info(part_color_map)").fetchall()}
+        if "weight" not in cols2:
+            cur.execute("ALTER TABLE part_color_map ADD COLUMN weight REAL")
+            con.commit()
+    except Exception:
+        pass
 
     cur.execute(
         """
@@ -845,7 +873,7 @@ def main() -> int:
 
     ap.add_argument(
         "--mode",
-        choices=["all", "build", "boid", "finalize", "export"],
+        choices=["all", "build", "boid", "export"],
         default="all",
         help=(
             "Modo de execução: "
@@ -861,19 +889,18 @@ def main() -> int:
     ap.add_argument("--rb-elements")
     ap.add_argument("--color-map")
 
-    # Optional weights mapping (weights.csv.gz recomendado; também aceita weight.xml(.gz))
-    ap.add_argument("--weights-file", default="", help="Caminho para weight.xml(.gz) ou weights.csv(.gz); se fornecido, preenche weight_g.")
-    ap.add_argument("--weights-overwrite", action="store_true", help="Se definido, sobrescreve weight_g mesmo se já existir.")
-
     # Outputs / DB (sempre necessários)
     ap.add_argument("--db", required=True)
     ap.add_argument("--out-csv", required=True)
     ap.add_argument("--issues", required=True)
 
+    # Weights
+    ap.add_argument("--weights-csv", default="inputs/bricklink/parts_weight.csv", help="CSV (ou .gz) com pesos (colunas: bl_part_id, weight).")
+    ap.add_argument("--weights-overwrite", action="store_true", help="Se definido, sobrescreve weight mesmo quando já existe; por defeito preenche apenas NULL.")
+    ap.add_argument("--skip-weights", action="store_true", help="Se definido, não aplica weights mesmo que o ficheiro exista.")
+
     ap.add_argument("--strict", action="store_true", help="Falha apenas se existirem ERROR (WARN não falha).")
     ap.add_argument("--debug-apis", action="store_true")
-
-    ap.add_argument("--rebuild", action="store_true", help="Recria a tabela part_color_map (apaga dados existentes). Use apenas quando necessário.")
 
     # Build tuning
     ap.add_argument("--progress-every", type=int, default=50000)
@@ -897,7 +924,7 @@ def main() -> int:
     args = ap.parse_args()
 
     mode = (args.mode or "all").strip().lower()
-    if mode not in ("all", "build", "boid", "finalize", "export"):
+    if mode not in ("all", "build", "boid", "export"):
         print(f"::error::Modo inválido: {mode}")
         return 2
 
@@ -935,7 +962,7 @@ def main() -> int:
             "bl_color_id",
             "bo_color_id",
             "ldraw_color_id",
-            "weight_g",
+            "weight",
             "boid",
             "source",
         ],
@@ -961,14 +988,11 @@ def main() -> int:
     def require_file(pth: Path, label: str) -> None:
         if not pth.exists():
             raise FileNotFoundError(f"Ficheiro obrigatório em falta ({label}): {pth}")
-    # Start each run with a fresh issues table so part_color_issues.csv reflects ONLY this run.
-    if mode != "export":
-        cur.execute("DELETE FROM build_issues")
-        con.commit()
 
-    # Rebuild DB only when explicitly requested.
-    if args.rebuild and mode in ("all", "build"):
+    # Fresh rebuild only in build/all
+    if mode in ("all", "build"):
         cur.execute("DELETE FROM part_color_map")
+        cur.execute("DELETE FROM build_issues")
         con.commit()
 
     # Load color map early if present (used in BOID fixups too)
@@ -1158,16 +1182,11 @@ def main() -> int:
                 if len(batch_rows) >= int(args.commit_every):
                     cur.executemany(
                         """
-                        INSERT INTO part_color_map(
+                        INSERT OR REPLACE INTO part_color_map(
                           bl_part_id, element_id, rb_part_num, rb_color_id,
                           bl_color_id, bo_color_id, ldraw_color_id, boid, source
                         ) VALUES (?,?,?,?,?,?,?,?,?)
-                        ON CONFLICT(bl_part_id, element_id, bl_color_id) DO UPDATE SET
-                          rb_part_num=excluded.rb_part_num,
-                          rb_color_id=excluded.rb_color_id,
-                          bo_color_id=excluded.bo_color_id,
-                          ldraw_color_id=excluded.ldraw_color_id,
-                          source=excluded.source""",
+                        """,
                         batch_rows,
                     )
                     con.commit()
@@ -1197,17 +1216,10 @@ def main() -> int:
             if batch_rows:
                 cur.executemany(
                     """
-                    INSERT INTO part_color_map(
+                    INSERT OR REPLACE INTO part_color_map(
                       bl_part_id, element_id, rb_part_num, rb_color_id,
                       bl_color_id, bo_color_id, ldraw_color_id, boid, source
                     ) VALUES (?,?,?,?,?,?,?,?,?)
-
-                    ON CONFLICT(bl_part_id, element_id, bl_color_id) DO UPDATE SET
-                      rb_part_num=excluded.rb_part_num,
-                      rb_color_id=excluded.rb_color_id,
-                      bo_color_id=excluded.bo_color_id,
-                      ldraw_color_id=excluded.ldraw_color_id,
-                      source=excluded.source
                     """,
                     batch_rows,
                 )
@@ -1229,173 +1241,34 @@ def main() -> int:
                 },
             )
 
+
+
         # -----------------
-        # Apply weights (optional)
+        # WEIGHTS (apply from inputs/bricklink/parts_weight.csv by default)
         # -----------------
-        if getattr(args, 'weights_file', ''):
+        if (not args.skip_weights) and mode in ("all", "build", "boid", "export"):
             try:
-                wp = Path(args.weights_file)
-                n_w = apply_weights_from_file(cur, con, wp, overwrite=bool(getattr(args, 'weights_overwrite', False)), add_issue=add_issue)
-                if n_w:
-                    add_issue('INFO', 'WEIGHTS_APPLIED', '', f'Pesos aplicados: updates={n_w}.')
+                wp = Path(args.weights_csv)
+                # Skip if nothing missing and not overwrite
+                missing_w = None
+                try:
+                    missing_w = cur.execute("SELECT COUNT(1) FROM part_color_map WHERE weight IS NULL").fetchone()[0]
+                except Exception:
+                    missing_w = None
+
+                if args.weights_overwrite or (missing_w is None) or (int(missing_w) > 0):
+                    print(f"[WEIGHT] applying weights from: {wp} (missing={missing_w})")
+                    apply_weights_from_csv(con, cur, wp, overwrite=bool(args.weights_overwrite), add_issue=add_issue)
                     con.commit()
+                else:
+                    print("[WEIGHT] skip (weight já preenchido)")
             except Exception as e:
-                add_issue('WARN', 'WEIGHTS_APPLY_FAILED', '', f'Falha ao aplicar pesos ({args.weights_file}): {e}')
+                add_issue("WARN", "WEIGHTS_APPLY_FAILED", "", f"Falha ao aplicar weights: {e}")
                 con.commit()
 
         # -----------------
         # BOID resolution (resume)
         # -----------------
-        # Finalize: resolver apenas BOIDs em falta (sem rebuild), usando id_lookup (sem cor) e lookup dos BOIDs devolvidos.
-        if bool(args.resolve_boid) and mode == 'finalize':
-            if args.max_runtime_seconds and (now_s() - t0) > float(args.max_runtime_seconds):
-                add_issue('WARN', 'SKIP_FINALIZE_MAX_RUNTIME', '', f'A saltar finalize porque já excedeu --max-runtime-seconds={args.max_runtime_seconds}.')
-                con.commit()
-            elif not BRICKOWL_API_KEY:
-                add_issue('WARN', 'BRICKOWL_API_UNAVAILABLE', '', 'BRICKOWL_API_KEY não definido; finalize não pode resolver BOIDs.')
-                con.commit()
-            else:
-                cache_path = Path(args.boid_cache_json)
-                cache: dict = {}
-                if cache_path.exists():
-                    try:
-                        cache = json.loads(cache_path.read_text(encoding='utf-8'))
-                    except Exception:
-                        cache = {}
-
-                bo_api = BrickOwlAPI(
-                    BRICKOWL_API_KEY,
-                    min_interval_s=float(args.boid_min_interval),
-                    bulk_min_interval_s=float(args.boid_bulk_min_interval),
-                    timeout_s=int(args.boid_timeout),
-                    cache=cache,
-                )
-
-                parts = [r[0] for r in cur.execute(
-                    "SELECT DISTINCT bl_part_id FROM part_color_map WHERE (boid IS NULL OR boid = '')"
-                ).fetchall()]
-
-                # Reutilizamos boid_max_pairs como limite de DEBUG (em nº de parts)
-                if args.boid_max_pairs and int(args.boid_max_pairs) > 0:
-                    parts = parts[: int(args.boid_max_pairs)]
-
-                total_parts = len(parts)
-                add_issue('INFO', 'BRICKOWL_FINALIZE_START', '', f'Finalize BOID: {total_parts} parts com boid em falta.')
-                con.commit()
-
-                def _parse_color(b: str):
-                    bs = str(b).strip()
-                    if '-' not in bs:
-                        return None
-                    _base, suf = bs.rsplit('-', 1)
-                    return int(suf) if suf.isdigit() else None
-
-                def _valid(b: str) -> bool:
-                    try:
-                        info = bo_api.catalog_lookup(str(b))
-                        return not (isinstance(info, dict) and info.get('error'))
-                    except Exception:
-                        return False
-
-                updated = 0
-                commit_every = max(1, int(args.boid_commit_every))
-
-                for i_part, bl_part_id in enumerate(parts, start=1):
-                    if _STOP:
-                        add_issue('WARN', 'STOP_SIGNAL', '', f'Stop requested ({_STOP_REASON}) durante finalize.')
-                        break
-                    if args.max_runtime_seconds and (now_s() - t0) > float(args.max_runtime_seconds):
-                        add_issue('WARN', 'EARLY_EXIT_MAX_RUNTIME', '', f'Paragem limpa por --max-runtime-seconds={args.max_runtime_seconds} durante finalize.')
-                        break
-
-                    try:
-                        boids = bo_api.catalog_id_lookup(id_value=str(bl_part_id), item_type='Part', id_type='bl_item_no')
-                    except Exception as e:
-                        add_issue('WARN', 'BRICKOWL_ID_LOOKUP_FAILED', str(bl_part_id), f'Finalize id_lookup falhou: {e}')
-                        boids = []
-
-                    if not boids:
-                        cur.execute(
-                            "UPDATE part_color_map SET boid='no_bo_id', source='NO_BO_ID' WHERE bl_part_id=? AND (boid IS NULL OR boid='')",
-                            (str(bl_part_id),)
-                        )
-                        add_issue('WARN', 'BRICKOWL_ID_LOOKUP_EMPTY', str(bl_part_id), f'Finalize: id_lookup devolveu 0 BOIDs para bl_item_no={bl_part_id}')
-                        updated += (cur.rowcount or 0)
-                    else:
-                        variants = {}
-                        base_boid = None
-                        for b in boids:
-                            bs = str(b).strip()
-                            if not bs:
-                                continue
-                            if not _valid(bs):
-                                continue
-                            c = _parse_color(bs)
-                            if c is None:
-                                if base_boid is None:
-                                    base_boid = bs
-                            else:
-                                variants[int(c)] = bs
-
-                        rows = cur.execute(
-                            "SELECT element_id, bl_color_id, bo_color_id FROM part_color_map WHERE bl_part_id=? AND (boid IS NULL OR boid='')",
-                            (str(bl_part_id),)
-                        ).fetchall()
-
-                        for element_id, bl_color_id, bo_color_id_db in rows:
-                            # Resolve bo_color_id efetivo (prefer mapping BL->BO)
-                            blc = None
-                            try:
-                                blc = int(bl_color_id) if bl_color_id is not None else None
-                            except Exception:
-                                blc = None
-
-                            eff = None
-                            if blc is not None and bl_to_bo:
-                                mapped = bl_to_bo.get(blc)
-                                if mapped is not None:
-                                    try:
-                                        eff = int(mapped)
-                                    except Exception:
-                                        eff = None
-                            if eff is None and bo_color_id_db is not None:
-                                try:
-                                    eff = int(bo_color_id_db)
-                                except Exception:
-                                    eff = None
-
-                            if eff is not None and eff in variants:
-                                cur.execute(
-                                    "UPDATE part_color_map SET boid=?, bo_color_id=?, source=COALESCE(source,'BRICKOWL') WHERE bl_part_id=? AND element_id=? AND (bl_color_id IS ? OR (bl_color_id IS NULL AND ? IS NULL))",
-                                    (str(variants[eff]), int(eff), str(bl_part_id), str(element_id), bl_color_id, bl_color_id)
-                                )
-                                updated += (cur.rowcount or 0)
-                            else:
-                                # Só atribuir base BOID quando a linha é realmente 'sem cor' (ambos NULL)
-                                if bl_color_id is None and bo_color_id_db is None and base_boid:
-                                    cur.execute(
-                                        "UPDATE part_color_map SET boid=?, source=COALESCE(source,'BRICKOWL') WHERE bl_part_id=? AND element_id=? AND bl_color_id IS NULL AND (boid IS NULL OR boid='')",
-                                        (str(base_boid), str(bl_part_id), str(element_id))
-                                    )
-                                    updated += (cur.rowcount or 0)
-
-                    if i_part % commit_every == 0:
-                        con.commit()
-                        try:
-                            persist_brickowl_cache(cache_path, bo_api.cache)
-                        except Exception:
-                            pass
-                        elapsed = now_s() - t0
-                        print(f'[FINALIZE] {i_part:,}/{total_parts:,} updated={updated:,} elapsed={elapsed:,.0f}s')
-
-                con.commit()
-                try:
-                    persist_brickowl_cache(cache_path, bo_api.cache)
-                except Exception:
-                    pass
-                add_issue('INFO', 'BRICKOWL_FINALIZE_DONE', '', f'Finalize terminado. Updates={updated}.')
-                con.commit()
-
         do_boid = bool(args.resolve_boid) and mode in ("all", "boid")
         if do_boid:
             # avoid starting BOID if we're already beyond max-runtime
@@ -1553,24 +1426,28 @@ def main() -> int:
         # -----------------
         # Export CSVs
         # -----------------
-        if mode in ("all", "build", "boid", "finalize", "export"):
+        if mode in ("all", "build", "boid", "export"):
             print("[EXPORT] part_color_map.csv...")
             with out_csv.open("w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
-                w.writerow(["bl_part_id", "element_id", "rb_part_num", "rb_color_id", "bl_color_id", "bo_color_id", "ldraw_color_id", "weight_g", "boid", "source"])
+                w.writerow(["bl_part_id", "element_id", "rb_part_num", "rb_color_id", "bl_color_id", "bo_color_id", "ldraw_color_id", "weight", "boid", "source"])
                 for row in cur.execute(
                     """
-                    SELECT bl_part_id, element_id, rb_part_num, rb_color_id, bl_color_id, bo_color_id, ldraw_color_id, weight_g, boid, source
+                    SELECT bl_part_id, element_id, rb_part_num, rb_color_id, bl_color_id, bo_color_id, ldraw_color_id, weight, boid, source
                     FROM part_color_map
                     ORDER BY bl_part_id, element_id, bl_color_id
                     """
                 ):
-                    out = list(row)
-                    # If this row is truly "sem cor" in DB, mark explicitly in CSV
-                    if out[4] is None and out[5] is None:
-                        out[4] = "no_color"
-                        out[5] = "no_color"
-                    w.writerow(out)
+                    # DB mantém NULL; CSV marca no_color quando ambos IDs são NULL
+                    blc=row[4]
+                    boc=row[5]
+                    if blc is None and boc is None:
+                        rr=list(row)
+                        rr[4]='no_color'
+                        rr[5]='no_color'
+                        w.writerow(rr)
+                    else:
+                        w.writerow(row)
 
             print("[EXPORT] part_color_issues.csv...")
             with issues_csv.open("w", newline="", encoding="utf-8") as f:
