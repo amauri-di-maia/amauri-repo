@@ -155,6 +155,74 @@ class RBColor:
     is_trans: Optional[int]
     ldraw_color_id: Optional[int]
 
+@dataclass
+class RBElement:
+    element_id: str
+    part_num: str
+    rb_color_id: int
+
+
+def _hex_to_rgb(hexs: str):
+    hexs = (hexs or '').strip().lstrip('#')
+    if len(hexs) != 6:
+        return None
+    try:
+        r = int(hexs[0:2], 16)
+        g = int(hexs[2:4], 16)
+        b = int(hexs[4:6], 16)
+        return (r, g, b)
+    except Exception:
+        return None
+
+
+def _rgb_dist(a: str, b: str) -> Optional[int]:
+    ra = _hex_to_rgb(a)
+    rb = _hex_to_rgb(b)
+    if not ra or not rb:
+        return None
+    return (ra[0]-rb[0])**2 + (ra[1]-rb[1])**2 + (ra[2]-rb[2])**2
+
+
+def _jaccard_tokens(a: str, b: str) -> float:
+    ta = set(norm(a).split())
+    tb = set(norm(b).split())
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / len(ta | tb)
+
+
+def tie_break_by_rb_color(rb_name: str, rb_rgb: str, candidates: List[int], bl_id_to_name: Dict[int, str], bl_id_to_rgb: Dict[int, str]) -> Optional[int]:
+    """Resolve candidate BL color by comparing to Rebrickable color metadata.
+
+    Strategy:
+    1) pick max Jaccard token similarity between RB name and BL name
+    2) if tie, pick min RGB distance (if available)
+    3) if still tie, return None
+    """
+    if not candidates:
+        return None
+    # Name similarity stage
+    sims = {c: _jaccard_tokens(rb_name, bl_id_to_name.get(c, '')) for c in candidates}
+    best_sim = max(sims.values())
+    top = [c for c, v in sims.items() if v == best_sim]
+    if len(top) == 1 and best_sim > 0.0:
+        return top[0]
+
+    # RGB distance stage
+    dists = {}
+    for c in top:
+        d = _rgb_dist(rb_rgb, bl_id_to_rgb.get(c, ''))
+        if d is not None:
+            dists[c] = d
+    if dists:
+        best = sorted(dists.items(), key=lambda kv: (kv[1], kv[0]))[0][0]
+        # ensure uniqueness
+        best_d = dists[best]
+        if sum(1 for _, v in dists.items() if v == best_d) == 1:
+            return best
+    return None
+
+
 
 @dataclass
 class SeedColor:
@@ -225,14 +293,21 @@ def load_rb_colors(rb_colors_csv: Path) -> Dict[int, RBColor]:
     return out
 
 
-def load_rb_elements(rb_elements_csv: Path) -> Dict[str, int]:
-    """element_id -> rb_color_id"""
-    out: Dict[str, int] = {}
+def load_rb_elements(rb_elements_csv: Path) -> Dict[str, RBElement]:
+    """element_id -> RBElement(part_num, rb_color_id).
+
+    Expected headers (Rebrickable elements.csv variants):
+      - element_id
+      - part_num (or part_id)
+      - color_id (or colour_id)
+    """
+    out: Dict[str, RBElement] = {}
     for row in read_csv_dicts(rb_elements_csv):
-        element_id = (row.get("element_id") or "").strip()
-        color_id = parse_int_any(row.get("color_id") or row.get("colour_id"))
+        element_id = (row.get('element_id') or row.get('element') or '').strip()
+        part_num = (row.get('part_num') or row.get('part_id') or row.get('part') or '').strip()
+        color_id = parse_int_any(row.get('color_id') or row.get('colour_id') or row.get('rb_color_id'))
         if element_id and color_id is not None:
-            out[element_id] = color_id
+            out[element_id] = RBElement(element_id=element_id, part_num=part_num, rb_color_id=color_id)
     return out
 
 
@@ -312,6 +387,64 @@ def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict
         )
 
     return seed, issues
+
+
+def load_element_overrides(path: Path, bl_id_to_name: Dict[int, str], issues: List[Dict[str, object]]) -> Dict[str, int]:
+    """Optional CSV: element_id, bl_color_id.
+
+    Use only to pin BrickLink color for problematic element ids in BrickLink codes.xml.
+    This is orthogonal to colors_seed.csv (which is RB-color driven).
+    """
+    out: Dict[str, int] = {}
+    if not path or not str(path).strip():
+        return out
+    if not path.exists():
+        issues.append({
+            'severity': 'WARN',
+            'issue_type': 'ELEMENT_OVERRIDE_FILE_MISSING',
+            'rb_color_id': '',
+            'name': '',
+            'details': f'element_overrides file not found: {path}',
+            'suggestions': 'Se não pretendes usar overrides por element_id, ignora este aviso.',
+        })
+        return out
+
+    for line_no, row in enumerate(read_csv_dicts(path), start=2):
+        eid = (row.get('element_id') or row.get('element') or '').strip()
+        bl_id = parse_int_any(row.get('bl_color_id') or row.get('bl_id') or row.get('color_id'))
+        if not eid or bl_id is None:
+            issues.append({
+                'severity': 'ERROR',
+                'issue_type': 'ELEMENT_OVERRIDE_INVALID_ROW',
+                'rb_color_id': '',
+                'name': '',
+                'details': f'element_overrides line {line_no}: element_id ou bl_color_id inválido.',
+                'suggestions': 'Formato esperado: element_id,bl_color_id',
+            })
+            continue
+        if bl_id not in bl_id_to_name:
+            issues.append({
+                'severity': 'ERROR',
+                'issue_type': 'ELEMENT_OVERRIDE_BL_COLOR_UNKNOWN',
+                'rb_color_id': '',
+                'name': '',
+                'details': f'element_overrides line {line_no}: bl_color_id={bl_id} não existe no BrickLink colors.xml deste run.',
+                'suggestions': 'Corrigir bl_color_id ou atualizar inputs/bricklink/colors.xml.',
+            })
+            continue
+        prev = out.get(eid)
+        if prev is not None and prev != bl_id:
+            issues.append({
+                'severity': 'ERROR',
+                'issue_type': 'ELEMENT_OVERRIDE_DUPLICATE_CONFLICT',
+                'rb_color_id': '',
+                'name': '',
+                'details': f'element_overrides: element_id={eid} repetido com bl_color_id diferente: {prev} vs {bl_id}',
+                'suggestions': 'Manter apenas 1 linha por element_id.',
+            })
+            continue
+        out[eid] = bl_id
+    return out
 
 
 # -----------------------------
@@ -727,6 +860,8 @@ def main() -> int:
     ap.add_argument("--rb-elements", required=True)
     ap.add_argument("--rb-colors", required=True)
     ap.add_argument("--seed", required=True)
+    ap.add_argument("--element-overrides", default="", help="CSV opcional: element_id,bl_color_id para fixar conflicts do codes.xml")
+
 
     ap.add_argument("--out", required=True)
     ap.add_argument("--audit", required=True)
@@ -746,6 +881,7 @@ def main() -> int:
     seed, seed_issues = load_seed(Path(args.seed), rb_colors, bl_id_to_name)
 
     issues: List[Dict[str, object]] = list(seed_issues)
+    element_overrides = load_element_overrides(Path(args.element_overrides) if args.element_overrides else None, bl_id_to_name, issues)
 
     cache_path = Path(args.cache_json)
     cache = load_json(cache_path)
@@ -807,14 +943,66 @@ def main() -> int:
 
     # Diagnose element conflicts and attempt resolution by part support
     element_resolved_color: Dict[str, Optional[int]] = {}
+    element_override_suggestions: List[Dict[str, object]] = []
 
     for element_id, c in element_color_counts.items():
+        # Only process element_ids that exist in Rebrickable elements.csv.
+        # If an element_id from BrickLink codes.xml does not exist in rb_elements,
+        # it cannot contribute to RB->BL mapping and should not generate noise/conflicts.
+        if element_id not in rb_elements:
+            continue
+
         if len(c) <= 1:
             element_resolved_color[element_id] = next(iter(c.keys())) if c else None
             continue
 
         candidates = [bid for bid, _ in c.most_common()]
         parts = sorted(element_parts.get(element_id, set()))
+
+        # Highest precedence: explicit element overrides (if provided)
+        ov = element_overrides.get(element_id) if 'element_overrides' in locals() else None
+        if ov is not None:
+            element_resolved_color[element_id] = ov
+            issues.append({
+                'severity': 'WARN',
+                'issue_type': 'BL_CODE_ELEMENT_COLOR_CONFLICT_RESOLVED_BY_ELEMENT_OVERRIDE',
+                'rb_color_id': '',
+                'name': '',
+                'details': f'Element {element_id} tinha múltiplos BL color_id {candidates}; resolvido para {ov} via element_overrides.',
+                'suggestions': 'Override aplicado. Mantém este ficheiro sob versionamento.',
+            })
+            continue
+
+        # Prefer Rebrickable element color as authoritative tie-breaker when available.
+        rb_el = rb_elements.get(element_id)
+        if rb_el is not None and (not is_sentinel_rb_color_id(rb_el.rb_color_id)):
+            expected_bl = rb_to_bl.get(rb_el.rb_color_id)
+            if expected_bl is not None and expected_bl in candidates:
+                element_resolved_color[element_id] = expected_bl
+                issues.append({
+                    'severity': 'WARN',
+                    'issue_type': 'BL_CODE_ELEMENT_COLOR_CONFLICT_RESOLVED_BY_RB_ELEMENT',
+                    'rb_color_id': '',
+                    'name': '',
+                    'details': f'Element {element_id} tinha múltiplos BL color_id {candidates}; resolvido para {expected_bl} via Rebrickable element (rb_color_id={rb_el.rb_color_id}).',
+                    'suggestions': 'Se quiseres fixar definitivamente, adiciona override no seed (ou regra interna por Element).',
+                })
+                continue
+            # If RB->BL not known yet, attempt a deterministic heuristic by name/RGB.
+            rb_col = rb_colors.get(rb_el.rb_color_id)
+            if rb_col is not None:
+                heuristic = tie_break_by_rb_color(rb_col.name, rb_col.rgb, candidates, bl_id_to_name, bl_id_to_rgb)
+                if heuristic is not None:
+                    element_resolved_color[element_id] = heuristic
+                    issues.append({
+                        'severity': 'WARN',
+                        'issue_type': 'BL_CODE_ELEMENT_COLOR_CONFLICT_RESOLVED_BY_NAME_RGB',
+                        'rb_color_id': '',
+                        'name': '',
+                        'details': f'Element {element_id} tinha múltiplos BL color_id {candidates}; resolvido para {heuristic} por heurística name/RGB (rb_color_id={rb_el.rb_color_id}).',
+                        'suggestions': 'Se quiseres fixar definitivamente, adiciona override no seed (ou regra interna por Element).',
+                    })
+                    continue
 
         best, support, checked = resolve_bl_color_by_part_support(
             "element", element_id, parts, candidates, bl_api, rb_api, rb_to_bl, cache, issues, args.max_part_checks
@@ -832,6 +1020,12 @@ def main() -> int:
             })
         else:
             element_resolved_color[element_id] = None
+            element_override_suggestions.append({
+                'element_id': element_id,
+                'candidates': ';'.join(str(x) for x in candidates),
+                'candidate_names': ';'.join((bl_id_to_name.get(x, '') or '').replace(';', ' ') for x in candidates),
+                'parts_count': len(parts),
+            })
             issues.append({
                 "severity": "WARN",
                 "issue_type": "BL_CODE_ELEMENT_COLOR_CONFLICT",
@@ -849,9 +1043,9 @@ def main() -> int:
     sentinel_rb_elements = Counter()
     sentinel_example_elements: List[str] = []
 
-    for element_id, rb_c in rb_elements.items():
-        if is_sentinel_rb_color_id(rb_c):
-            sentinel_rb_elements[rb_c] += 1
+    for element_id, rb_el in rb_elements.items():
+        if is_sentinel_rb_color_id(rb_el.rb_color_id):
+            sentinel_rb_elements[rb_el.rb_color_id] += 1
             if len(sentinel_example_elements) < 10:
                 sentinel_example_elements.append(element_id)
             continue
@@ -862,9 +1056,9 @@ def main() -> int:
         if not bl_cands:
             continue
         for blc in bl_cands:
-            rb_candidate_counts[rb_c][blc] += 1
+            rb_candidate_counts[rb_el.rb_color_id][blc] += 1
         for pid in element_parts.get(element_id, set()):
-            rb_involved_parts[rb_c].add(pid)
+            rb_involved_parts[rb_el.rb_color_id].add(pid)
 
     if sentinel_rb_elements:
         issues.append({
@@ -1015,6 +1209,11 @@ def main() -> int:
     write_csv(Path(args.issues),
               ["severity", "issue_type", "rb_color_id", "name", "details", "suggestions"],
               issues)
+
+    if element_override_suggestions:
+        sug_path = Path(args.issues).with_name('element_overrides_suggested.csv')
+        write_csv(sug_path, ['element_id','candidates','candidate_names','parts_count'], element_override_suggestions)
+        print(f'✅ Wrote: {sug_path} (rows={len(element_override_suggestions)})')
 
     n_err = sum(1 for x in issues if x.get("severity") == "ERROR")
     n_warn = sum(1 for x in issues if x.get("severity") == "WARN")
