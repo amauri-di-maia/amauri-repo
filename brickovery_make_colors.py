@@ -103,6 +103,11 @@ def parse_int_any(v: object) -> Optional[int]:
         return None
 
 
+def is_sentinel_rb_color_id(rb_color_id: int) -> bool:
+    """Return True for placeholder/sentinel Rebrickable color ids (e.g., -1 = [Unknown])."""
+    return rb_color_id < 0
+
+
 def read_csv_dicts(path: Path) -> Iterable[Dict[str, str]]:
     with path.open("r", encoding="utf-8-sig", newline="") as f:
         r = csv.DictReader(f)
@@ -756,6 +761,10 @@ def main() -> int:
     rb_to_bl: Dict[int, Optional[int]] = {}
     rb_to_bl_source: Dict[int, str] = {}
     for rb_id, rb in rb_colors.items():
+        if is_sentinel_rb_color_id(rb_id):
+            rb_to_bl[rb_id] = None
+            rb_to_bl_source[rb_id] = "sentinel"
+            continue
         s = seed.get(rb_id)
         if s and s.bl_color_id is not None:
             rb_to_bl[rb_id] = s.bl_color_id
@@ -837,7 +846,15 @@ def main() -> int:
     rb_candidate_counts: Dict[int, Counter] = defaultdict(Counter)
     rb_involved_parts: Dict[int, Set[str]] = defaultdict(set)
 
+    sentinel_rb_elements = Counter()
+    sentinel_example_elements: List[str] = []
+
     for element_id, rb_c in rb_elements.items():
+        if is_sentinel_rb_color_id(rb_c):
+            sentinel_rb_elements[rb_c] += 1
+            if len(sentinel_example_elements) < 10:
+                sentinel_example_elements.append(element_id)
+            continue
         if element_id in element_resolved_color and element_resolved_color[element_id] is not None:
             bl_cands = [element_resolved_color[element_id]]
         else:
@@ -849,8 +866,20 @@ def main() -> int:
         for pid in element_parts.get(element_id, set()):
             rb_involved_parts[rb_c].add(pid)
 
+    if sentinel_rb_elements:
+        issues.append({
+            "severity": "WARN",
+            "issue_type": "RB_ELEMENTS_SENTINEL_COLOR_SKIPPED",
+            "rb_color_id": "",
+            "name": "",
+            "details": f"rb_elements contém rb_color_id(s) sentinela {dict(sentinel_rb_elements)}. Foram ignorados para evitar mapear [Unknown] para cores BrickLink. Exemplos de element_id: {sentinel_example_elements}",
+            "suggestions": "Normalmente é seguro ignorar. Se quiseres, limpa esses element_id no rb_elements.csv.",
+        })
+
     # Resolve RB_TO_BL_CONFLICT / BL_ID_MISSING_RELEVANT using BrickLink PARTs + Known Colors
     for rb_id, c in rb_candidate_counts.items():
+        if is_sentinel_rb_color_id(rb_id):
+            continue
         if not c:
             continue
         candidates = [bid for bid, _ in c.most_common()]
@@ -924,20 +953,26 @@ def main() -> int:
         rb = rb_colors[rb_id]
         s = seed.get(rb_id)
 
+        sentinel = is_sentinel_rb_color_id(rb_id)
+
         bl_id = rb_to_bl.get(rb_id)
         bl_source = rb_to_bl_source.get(rb_id, "none")
+        if sentinel:
+            bl_id = None
+            bl_source = "sentinel"
 
         bo_id: Optional[int] = None
-        if s and s.bo_color_id is not None and s.bo_color_id != 0:
-            bo_id = s.bo_color_id
-        elif bl_id is not None:
-            # Fill missing BO mapping by BrickLink color id (authoritative from seed).
-            bo_id = bl_to_bo_seed.get(bl_id)
+        if not sentinel:
+            if s and s.bo_color_id is not None and s.bo_color_id != 0:
+                bo_id = s.bo_color_id
+            elif bl_id is not None:
+                # Fill missing BO mapping by BrickLink color id (authoritative from seed).
+                bo_id = bl_to_bo_seed.get(bl_id)
         ldraw_id = rb.ldraw_color_id
         if s and s.ldraw_color_id is not None:
             ldraw_id = s.ldraw_color_id
 
-        if bl_id is None:
+        if bl_id is None and not sentinel:
             issues.append({
                 "severity": "WARN",
                 "issue_type": "BL_ID_MISSING",
@@ -959,8 +994,8 @@ def main() -> int:
         audit_rows.append({
             "name": rb.name,
             "rb_color_id": rb_id,
-            "rb_rgb": rb.rgb,
-            "rb_is_trans": rb.is_trans if rb.is_trans is not None else "",
+            "rb_rgb": ("" if sentinel else rb.rgb),
+            "rb_is_trans": ("" if sentinel else (rb.is_trans if rb.is_trans is not None else "")),
             "bl_color_id": bl_id if bl_id is not None else "",
             "bl_color_name": bl_id_to_name.get(bl_id, "") if bl_id is not None else "",
             "bl_rgb": bl_id_to_rgb.get(bl_id, "") if bl_id is not None else "",
