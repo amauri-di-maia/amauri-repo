@@ -1,4 +1,5 @@
 name,rb_color_id,bl_color_id,bo_color_id
+[Unknown],-1,,0
 Black,0,11,38
 Blue,1,7,39
 Green,2,6,61
@@ -224,6 +225,7 @@ Ochre Yellow,1145,173,255
 Warm Pink,1146,175,
 Blue Violet,1147,174,
 [No Color/Any Color],9999,0,
+
 
 
 
