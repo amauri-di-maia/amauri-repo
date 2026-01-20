@@ -5,7 +5,7 @@
 
 Outputs (default paths via workflow):
   data/brickovery.db
-  data/part_color_map.csv
+  data/brickovery_db.csv
   data/part_color_issues.csv
   data/build_checkpoint.json
   data/brickovery_build_error.log
@@ -94,6 +94,41 @@ ITEMTYPE_TO_PATH = {
     "UNSORTED_LOT": "unsorted_lot",
 }
 
+# Canonical item_type code for storage (keeps DB stable even if inputs use long names)
+ITEMTYPE_TO_CANON = {
+    "P": "P",
+    "PART": "P",
+    "S": "S",
+    "SET": "S",
+    "M": "M",
+    "MINIFIG": "M",
+    "G": "G",
+    "GEAR": "G",
+    "B": "B",
+    "BOOK": "B",
+    "C": "C",
+    "CATALOG": "C",
+    "I": "I",
+    "INSTRUCTION": "I",
+    "O": "O",
+    "ORIGINAL_BOX": "O",
+    "U": "U",
+    "UNSORTED_LOT": "U",
+}
+
+
+# -----------------------------
+# DB table name (SQLite)
+# -----------------------------
+DB_TABLE = "brickovery_db"
+LEGACY_TABLE = "part_color_map"  # backward-compat migration
+
+
+def canon_item_type(itemtype: Optional[str]) -> str:
+    it = (itemtype or "P").strip().upper()
+    return ITEMTYPE_TO_CANON.get(it, it or "P")
+
+
 # -----------------------------
 # Global stop flag (for SIGTERM/SIGINT)
 # -----------------------------
@@ -162,7 +197,7 @@ def _open_maybe_gzip(path: Path):
 
 
 def apply_weights_from_csv(con, cur, weights_csv: Path, *, overwrite: bool, add_issue) -> int:
-    """Apply part weights to part_color_map.weight.
+    """Apply part weights to brickovery_db.weight.
 
     Expected: a CSV (optionally .gz) with at least:
       - bl_part_id (or compatible alias)
@@ -216,18 +251,18 @@ def apply_weights_from_csv(con, cur, weights_csv: Path, *, overwrite: bool, add_
                 batch.append((wv, bl))
                 if len(batch) >= batch_size:
                     if overwrite:
-                        cur.executemany('UPDATE part_color_map SET weight=? WHERE bl_part_id=?', batch)
+                        cur.executemany("UPDATE brickovery_db SET weight=? WHERE bl_part_id=? AND item_type='P'", batch)
                     else:
-                        cur.executemany('UPDATE part_color_map SET weight=? WHERE bl_part_id=? AND weight IS NULL', batch)
+                        cur.executemany("UPDATE brickovery_db SET weight=? WHERE bl_part_id=? AND weight IS NULL AND item_type='P'", batch)
                     updated += cur.rowcount if cur.rowcount is not None else 0
                     con.commit()
                     batch.clear()
 
         if batch:
             if overwrite:
-                cur.executemany('UPDATE part_color_map SET weight=? WHERE bl_part_id=?', batch)
+                cur.executemany("UPDATE brickovery_db SET weight=? WHERE bl_part_id=? AND item_type='P'", batch)
             else:
-                cur.executemany('UPDATE part_color_map SET weight=? WHERE bl_part_id=? AND weight IS NULL', batch)
+                cur.executemany("UPDATE brickovery_db SET weight=? WHERE bl_part_id=? AND weight IS NULL AND item_type='P'", batch)
             updated += cur.rowcount if cur.rowcount is not None else 0
             con.commit()
             batch.clear()
@@ -264,7 +299,7 @@ def fill_missing_weights_from_bricklink(
     """
     try:
         rows = cur.execute(
-            "SELECT DISTINCT bl_part_id FROM part_color_map WHERE weight IS NULL AND bl_part_id IS NOT NULL"
+            "SELECT DISTINCT bl_part_id FROM brickovery_db WHERE weight IS NULL AND bl_part_id IS NOT NULL AND item_type='P'"
         ).fetchall()
     except Exception as e:
         add_issue('WARN', 'WEIGHTS_BRICKLINK_QUERY_FAILED', '', f'Falha ao listar parts sem weight: {e}')
@@ -304,7 +339,7 @@ def fill_missing_weights_from_bricklink(
         else:
             try:
                 cur.execute(
-                    "UPDATE part_color_map SET weight=? WHERE bl_part_id=? AND weight IS NULL",
+                    "UPDATE brickovery_db SET weight=? WHERE bl_part_id=? AND weight IS NULL AND item_type='P'",
                     (float(w), str(part)),
                 )
                 if cur.rowcount:
@@ -1158,20 +1193,32 @@ def init_db(db_path: Path) -> None:
     con = sqlite3.connect(str(db_path))
     cur = con.cursor()
 
+    # Backward-compat: if an old DB still uses the legacy table name, migrate it in-place.
+    try:
+        tables = {r[0] for r in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if (LEGACY_TABLE in tables) and (DB_TABLE not in tables):
+            cur.execute(f'ALTER TABLE "{LEGACY_TABLE}" RENAME TO "{DB_TABLE}"')
+            con.commit()
+    except Exception:
+        # Keep init_db resilient: if migration fails, schema creation/migrations below will proceed.
+        pass
+
+
     def _cols(table: str) -> dict:
         try:
             return {row[1]: (row[2] or '').upper() for row in cur.execute(f"PRAGMA table_info({table})").fetchall()}
         except Exception:
             return {}
 
-    cols = _cols('part_color_map')
+    cols = _cols('brickovery_db')
 
     # Desired schema (no weight_g; boid TEXT)
     def _create_schema() -> None:
         cur.execute(
             """
-            CREATE TABLE IF NOT EXISTS part_color_map (
+            CREATE TABLE IF NOT EXISTS brickovery_db (
               bl_part_id TEXT NOT NULL,
+              item_type TEXT NOT NULL DEFAULT 'P',
               element_id TEXT NOT NULL,
               rb_part_num TEXT,
               rb_color_id INTEGER,
@@ -1182,8 +1229,7 @@ def init_db(db_path: Path) -> None:
               boid TEXT,
               source TEXT,
               PRIMARY KEY (bl_part_id, element_id, bl_color_id)
-            )
-            """
+            )"""
         )
 
     need_rebuild = False
@@ -1193,9 +1239,9 @@ def init_db(db_path: Path) -> None:
         if 'weight_g' in cols:
             # Must be removed (user request). Prefer DROP COLUMN; if unavailable, rebuild.
             try:
-                cur.execute('ALTER TABLE part_color_map DROP COLUMN weight_g')
+                cur.execute('ALTER TABLE brickovery_db DROP COLUMN weight_g')
                 con.commit()
-                cols = _cols('part_color_map')
+                cols = _cols('brickovery_db')
             except Exception:
                 need_rebuild = True
         if 'weight' not in cols and 'weight_g' in cols:
@@ -1203,10 +1249,13 @@ def init_db(db_path: Path) -> None:
 
     if cols and need_rebuild:
         # Non-destructive migration: rebuild table preserving data.
-        cur.execute('ALTER TABLE part_color_map RENAME TO part_color_map_old')
+        cur.execute('ALTER TABLE brickovery_db RENAME TO brickovery_db_old')
         _create_schema()
 
-        old_cols = _cols('part_color_map_old')
+        old_cols = _cols('brickovery_db_old')
+        item_type_expr = "'P'"
+        if 'item_type' in old_cols:
+            item_type_expr = 'item_type'
         w_expr = 'NULL'
         if 'weight' in old_cols:
             w_expr = 'weight'
@@ -1223,35 +1272,54 @@ def init_db(db_path: Path) -> None:
 
         cur.execute(
             f"""
-            INSERT OR REPLACE INTO part_color_map (
-              bl_part_id, element_id, rb_part_num, rb_color_id,
+            INSERT OR REPLACE INTO brickovery_db (
+              bl_part_id, item_type, element_id, rb_part_num, rb_color_id,
               bl_color_id, bo_color_id, ldraw_color_id,
               weight, boid, source
             )
             SELECT
-              bl_part_id, element_id, rb_part_num, rb_color_id,
+              bl_part_id, {item_type_expr} AS item_type, element_id, rb_part_num, rb_color_id,
               bl_color_id, bo_color_id, ldraw_color_id,
               {w_expr} AS weight,
               {boid_expr} AS boid,
               {source_expr} AS source
-            FROM part_color_map_old
+            FROM brickovery_db_old
             """
         )
-        cur.execute('DROP TABLE part_color_map_old')
+        cur.execute('DROP TABLE brickovery_db_old')
         con.commit()
-        cols = _cols('part_color_map')
+        cols = _cols('brickovery_db')
 
     # Create if missing
     _create_schema()
 
     # Ensure weight column exists (safety)
-    cols2 = _cols('part_color_map')
+    cols2 = _cols('brickovery_db')
     if 'weight' not in cols2:
         try:
-            cur.execute('ALTER TABLE part_color_map ADD COLUMN weight REAL')
+            cur.execute('ALTER TABLE brickovery_db ADD COLUMN weight REAL')
             con.commit()
         except Exception:
             pass
+
+    # Ensure item_type column exists (safety)
+    cols3 = _cols('brickovery_db')
+    if 'item_type' not in cols3:
+        try:
+            cur.execute("ALTER TABLE brickovery_db ADD COLUMN item_type TEXT NOT NULL DEFAULT 'P'")
+            con.commit()
+        except Exception:
+            try:
+                cur.execute('ALTER TABLE brickovery_db ADD COLUMN item_type TEXT')
+                con.commit()
+            except Exception:
+                pass
+    # Backfill existing rows
+    try:
+        cur.execute("UPDATE brickovery_db SET item_type='P' WHERE item_type IS NULL OR item_type='' ")
+        con.commit()
+    except Exception:
+        pass
 
     cur.execute(
         """
@@ -1401,6 +1469,7 @@ def main() -> int:
         out_csv,
         [
             "bl_part_id",
+            "item_type",
             "element_id",
             "rb_part_num",
             "rb_color_id",
@@ -1436,7 +1505,7 @@ def main() -> int:
 
     # Fresh rebuild only in build/all
     if mode in ("all", "build"):
-        cur.execute("DELETE FROM part_color_map")
+        cur.execute("DELETE FROM brickovery_db")
         cur.execute("DELETE FROM build_issues")
         con.commit()
 
@@ -1522,7 +1591,8 @@ def main() -> int:
                     break
 
                 # We only care about parts for this DB
-                if (itemtype or "P").strip().upper() not in ("P", "PART"):
+                item_type = canon_item_type(itemtype)
+                if item_type != "P":
                     continue
 
                 if element_id in rb_elements:
@@ -1548,6 +1618,7 @@ def main() -> int:
                     batch_rows.append(
                         (
                             str(bl_part_id),
+                            str(item_type),
                             str(element_id),
                             str(rb_part_num),
                             int(rb_color_id) if rb_color_id is not None else None,
@@ -1603,6 +1674,7 @@ def main() -> int:
                                         batch_rows.append(
                                             (
                                                 str(bl_part_id),
+                                                "P",
                                                 str(element_id),
                                                 None,
                                                 None,
@@ -1627,10 +1699,10 @@ def main() -> int:
                 if len(batch_rows) >= int(args.commit_every):
                     cur.executemany(
                         """
-                        INSERT OR REPLACE INTO part_color_map(
-                          bl_part_id, element_id, rb_part_num, rb_color_id,
+                        INSERT OR REPLACE INTO brickovery_db(
+                          bl_part_id, item_type, element_id, rb_part_num, rb_color_id,
                           bl_color_id, bo_color_id, ldraw_color_id, boid, source
-                        ) VALUES (?,?,?,?,?,?,?,?,?)
+                        ) VALUES (?,?,?,?,?,?,?,?,?,?)
                         """,
                         batch_rows,
                     )
@@ -1661,10 +1733,10 @@ def main() -> int:
             if batch_rows:
                 cur.executemany(
                     """
-                    INSERT OR REPLACE INTO part_color_map(
-                      bl_part_id, element_id, rb_part_num, rb_color_id,
-                      bl_color_id, bo_color_id, ldraw_color_id, boid, source
-                    ) VALUES (?,?,?,?,?,?,?,?,?)
+                    INSERT OR REPLACE INTO brickovery_db(
+                          bl_part_id, item_type, element_id, rb_part_num, rb_color_id,
+                          bl_color_id, bo_color_id, ldraw_color_id, boid, source
+                        ) VALUES (?,?,?,?,?,?,?,?,?,?)
                     """,
                     batch_rows,
                 )
@@ -1693,7 +1765,7 @@ def main() -> int:
                 wp = Path(args.weights_csv)
                 # Skip if nothing missing and not overwrite
                 try:
-                    missing_w = cur.execute("SELECT COUNT(1) FROM part_color_map WHERE weight IS NULL").fetchone()[0]
+                    missing_w = cur.execute("SELECT COUNT(1) FROM brickovery_db WHERE weight IS NULL").fetchone()[0]
                 except Exception:
                     missing_w = None
 
@@ -1704,7 +1776,7 @@ def main() -> int:
 
                     # Fallback: preencher weights em falta via BrickLink API (por BL ID, sem cor)
                     try:
-                        missing_after_csv = cur.execute("SELECT COUNT(1) FROM part_color_map WHERE weight IS NULL").fetchone()[0]
+                        missing_after_csv = cur.execute("SELECT COUNT(1) FROM brickovery_db WHERE weight IS NULL").fetchone()[0]
                     except Exception:
                         missing_after_csv = None
 
@@ -1770,8 +1842,8 @@ def main() -> int:
                 rows_pairs = cur.execute(
                     """
                     SELECT DISTINCT bl_part_id, bl_color_id, bo_color_id
-                    FROM part_color_map
-                    WHERE (boid IS NULL OR boid = '')
+                    FROM brickovery_db
+                    WHERE (boid IS NULL OR boid = '') AND item_type='P'
                     """
                 ).fetchall()
 
@@ -1853,12 +1925,12 @@ def main() -> int:
                     if boid:
                         if blc is not None:
                             cur.execute(
-                                "UPDATE part_color_map SET boid=?, bo_color_id=? WHERE bl_part_id=? AND bl_color_id=?",
+                                "UPDATE brickovery_db SET boid=?, bo_color_id=? WHERE bl_part_id=? AND bl_color_id=? AND item_type='P'",
                                 (str(boid), int(bo_color_id_eff), str(bl_part_id), int(blc)),
                             )
                         else:
                             cur.execute(
-                                "UPDATE part_color_map SET boid=?, bo_color_id=? WHERE bl_part_id=? AND bo_color_id=? AND (bl_color_id IS NULL)",
+                                "UPDATE brickovery_db SET boid=?, bo_color_id=? WHERE bl_part_id=? AND bo_color_id=? AND (bl_color_id IS NULL) AND item_type='P'",
                                 (str(boid), int(bo_color_id_eff), str(bl_part_id), int(bo_color_id_eff)),
                             )
                         updated += 1
@@ -1894,24 +1966,24 @@ def main() -> int:
         # Export CSVs
         # -----------------
         if mode in ("all", "build", "boid", "export"):
-            print("[EXPORT] part_color_map.csv...")
+            print(f"[EXPORT] {out_csv.name}...")
             with out_csv.open("w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
-                w.writerow(["bl_part_id", "element_id", "rb_part_num", "rb_color_id", "bl_color_id", "bo_color_id", "ldraw_color_id", "weight", "boid", "source"])
+                w.writerow(["bl_part_id", "item_type", "element_id", "rb_part_num", "rb_color_id", "bl_color_id", "bo_color_id", "ldraw_color_id", "weight", "boid", "source"])
                 for row in cur.execute(
                     """
-                    SELECT bl_part_id, element_id, rb_part_num, rb_color_id, bl_color_id, bo_color_id, ldraw_color_id, weight, boid, source
-                    FROM part_color_map
-                    ORDER BY bl_part_id, element_id, bl_color_id
+                    SELECT bl_part_id, item_type, element_id, rb_part_num, rb_color_id, bl_color_id, bo_color_id, ldraw_color_id, weight, boid, source
+                    FROM brickovery_db
+                    ORDER BY item_type, bl_part_id, element_id, bl_color_id
                     """
                 ):
                     # DB mantém NULL; CSV marca no_color quando ambos IDs são NULL
-                    blc=row[4]
-                    boc=row[5]
+                    blc=row[5]
+                    boc=row[6]
                     if blc is None and boc is None:
                         rr=list(row)
-                        rr[4]='no_color'
                         rr[5]='no_color'
+                        rr[6]='no_color'
                         w.writerow(rr)
                     else:
                         w.writerow(row)
@@ -1928,7 +2000,7 @@ def main() -> int:
         # Summary
         n_err = cur.execute("SELECT COUNT(1) FROM build_issues WHERE severity='ERROR' AND ts>=?", (run_ts,)).fetchone()[0]
         n_warn = cur.execute("SELECT COUNT(1) FROM build_issues WHERE severity='WARN' AND ts>=?", (run_ts,)).fetchone()[0]
-        n_rows = cur.execute("SELECT COUNT(1) FROM part_color_map").fetchone()[0]
+        n_rows = cur.execute("SELECT COUNT(1) FROM brickovery_db").fetchone()[0]
         elapsed = now_s() - t0
         print(f"✅ mode={mode} | DB rows={n_rows:,} | issues ERR={n_err} WARN={n_warn} | elapsed={elapsed:,.1f}s")
 
