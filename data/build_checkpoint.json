@@ -1,6 +1,0 @@
-{
-  "ts": 1768865016,
-  "phase": "crash",
-  "mode": "finalize",
-  "error": "no such column: weight_g"
-}
