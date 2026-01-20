@@ -248,6 +248,11 @@ def load_seed(seed_csv: Path, rb_colors: Dict[int, RBColor], bl_id_to_name: Dict
         rb_id = parse_int_any(row.get("rb_color_id") or row.get("id") or row.get("color_id"))
         bl_id = parse_int_any(row.get("bl_color_id"))
         bo_id = parse_int_any(row.get("bo_color_id"))
+        # Treat 0 as "unset".
+        # This avoids false "multiple mapping" conflicts when downstream
+        # tooling coerces empty bo_color_id to 0.
+        if bo_id == 0:
+            bo_id = None
         ld_id = parse_int_any(row.get("ldraw_color_id") or row.get("ldraw_id"))
 
         if rb_id is None:
@@ -886,6 +891,31 @@ def main() -> int:
     # Save cache
     save_json(cache_path, cache)
 
+    # Build an authoritative BL->BO mapping from the seed.
+    # Rationale: Rebrickable can have multiple rb_color_id that legitimately
+    # project to the SAME BrickLink color_id. If only one of those rb_color_id
+    # is present in the seed, other rows would have bo_color_id empty, and
+    # downstream code that coerces empty->0 will see a false conflict like
+    # "bl_color_id=66 mapped to multiple bo_color_id: 0 vs 122".
+    bl_to_bo_seed: Dict[int, int] = {}
+    for sc in seed.values():
+        if sc.bl_color_id is None:
+            continue
+        if sc.bo_color_id is None or sc.bo_color_id == 0:
+            continue
+        prev = bl_to_bo_seed.get(sc.bl_color_id)
+        if prev is None:
+            bl_to_bo_seed[sc.bl_color_id] = sc.bo_color_id
+        elif prev != sc.bo_color_id:
+            issues.append({
+                "severity": "ERROR",
+                "issue_type": "SEED_BL_TO_BO_CONFLICT",
+                "rb_color_id": sc.rb_color_id,
+                "name": sc.name,
+                "details": f"Seed define bl_color_id={sc.bl_color_id} com múltiplos bo_color_id: {prev} vs {sc.bo_color_id}",
+                "suggestions": "Corrigir o seed: BL->BO deve ser 1:1.",
+            })
+
     # Build outputs
     out_rows: List[Dict[str, object]] = []
     audit_rows: List[Dict[str, object]] = []
@@ -897,7 +927,12 @@ def main() -> int:
         bl_id = rb_to_bl.get(rb_id)
         bl_source = rb_to_bl_source.get(rb_id, "none")
 
-        bo_id = s.bo_color_id if s else None
+        bo_id: Optional[int] = None
+        if s and s.bo_color_id is not None and s.bo_color_id != 0:
+            bo_id = s.bo_color_id
+        elif bl_id is not None:
+            # Fill missing BO mapping by BrickLink color id (authoritative from seed).
+            bo_id = bl_to_bo_seed.get(bl_id)
         ldraw_id = rb.ldraw_color_id
         if s and s.ldraw_color_id is not None:
             ldraw_id = s.ldraw_color_id
