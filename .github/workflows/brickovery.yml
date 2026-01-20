@@ -1,5 +1,8 @@
 name: Brickovery - Rebuild DB
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   schedule:
@@ -102,6 +105,7 @@ jobs:
       - name: Prepare workspace
         run: |
           mkdir -p data
+          mkdir -p "data base"
           rm -rf _artifact_colors
           mkdir -p _artifact_colors
 
@@ -207,6 +211,188 @@ jobs:
             --max-runtime-seconds 21600 \
             ${EXTRA}
 
+      - name: Verify outputs exist (fail fast)
+        if: always()
+        run: |
+          set -euo pipefail
+          echo "=== ls -la data ==="
+          ls -la data || true
+          echo "=== ls -la data base ==="
+          ls -la "data base" || true
+
+          test -f data/brickovery.db || { echo "::error::DB não foi gerada em data/brickovery.db"; exit 1; }
+          test -f data/part_color_issues.csv || { echo "::error::Ficheiro de issues não foi gerado em data/part_color_issues.csv"; exit 1; }
+          test -f data/part_color_map.csv || echo "::warning::data/part_color_map.csv não encontrado (pode ocorrer em alguns modos; ver logs)."
+
+      - name: Mirror DB and run outputs into "data base/" (compat)
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "data base"
+
+          # DB
+          cp -f data/brickovery.db "data base/brickovery.db"
+          [ -f data/brickovery.db-wal ] && cp -f data/brickovery.db-wal "data base/brickovery.db-wal" || true
+          [ -f data/brickovery.db-shm ] && cp -f data/brickovery.db-shm "data base/brickovery.db-shm" || true
+
+          # Run files (keep a mirrored copy for convenience)
+          [ -f data/part_color_map.csv ] && cp -f data/part_color_map.csv "data base/part_color_map.csv" || true
+          [ -f data/part_color_issues.csv ] && cp -f data/part_color_issues.csv "data base/part_color_issues.csv" || true
+          [ -f data/build_checkpoint.json ] && cp -f data/build_checkpoint.json "data base/build_checkpoint.json" || true
+
+          echo "=== ls -la data base ==="
+          ls -la "data base" || true
+
+      - name: Random DB spot-check (10 BL parts -> BOID lookup)
+        if: always()
+        env:
+          BRICKOWL_API_KEY: ${{ secrets.BRICKOWL_API_KEY }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, sqlite3, time
+          from pathlib import Path
+
+          # Import BrickOwlAPI from project code (no mechanics changes).
+          from brickovery import BrickOwlAPI
+
+          out_dir = Path('data')
+          out_dir.mkdir(parents=True, exist_ok=True)
+          out_path = out_dir / 'teste_db'
+
+          api_key = (os.getenv('BRICKOWL_API_KEY') or '').strip()
+          db_candidates = [Path('data/brickovery.db'), Path('data base/brickovery.db')]
+          db_path = next((p for p in db_candidates if p.exists()), None)
+          ts = int(time.time())
+
+          lines = []
+          lines.append(f"teste_db spot-check | ts={ts}")
+          lines.append(f"db_path={db_path}")
+          if not db_path:
+            lines.append('ERROR: DB not found in data/ or data base/')
+            out_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+            raise SystemExit(1)
+
+          con = sqlite3.connect(str(db_path))
+          cur = con.cursor()
+
+          # Pick 10 random BL part ids that already have at least one BOID.
+          bl_parts = [r[0] for r in cur.execute(
+            """
+            SELECT DISTINCT bl_part_id
+            FROM part_color_map
+            WHERE boid IS NOT NULL AND TRIM(boid) != ''
+            ORDER BY RANDOM()
+            LIMIT 10
+            """
+          ).fetchall()]
+
+          rows = []
+          for bl_part_id in bl_parts:
+            row = cur.execute(
+              """
+              SELECT bl_part_id, bo_color_id, boid
+              FROM part_color_map
+              WHERE bl_part_id = ? AND boid IS NOT NULL AND TRIM(boid) != ''
+              ORDER BY RANDOM()
+              LIMIT 1
+              """,
+              (bl_part_id,)
+            ).fetchone()
+            if row:
+              rows.append(row)
+
+          lines.append(f"picked_bl_part_id={len(bl_parts)} picked_rows={len(rows)}")
+
+          if not rows:
+            lines.append('WARN: No rows with BOID found to test.')
+            out_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+            raise SystemExit(0)
+
+          if not api_key:
+            lines.append('WARN: BRICKOWL_API_KEY missing; skipping live lookup.')
+            for bl_part_id, bo_color_id, boid in rows:
+              lines.append(f"SKIP | bl_part_id={bl_part_id} bo_color_id={bo_color_id} boid={boid}")
+            out_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+            raise SystemExit(0)
+
+          bo = BrickOwlAPI(api_key, min_interval_s=0.12, timeout_s=30, cache={})
+
+          def extract_lookup_color_id(info):
+            if not isinstance(info, dict):
+              return None
+            for k in ('color_id', 'colour_id'):
+              v = info.get(k)
+              if v is None:
+                continue
+              try:
+                return int(v)
+              except Exception:
+                pass
+            c = info.get('color')
+            if isinstance(c, dict):
+              v = c.get('id')
+              try:
+                return int(v) if v is not None else None
+              except Exception:
+                return None
+            return None
+
+          ok = 0
+          fail = 0
+
+          for bl_part_id, bo_color_id, boid in rows:
+            boid_s = str(boid).strip()
+            target = int(bo_color_id) if bo_color_id is not None else None
+
+            status = 'FAIL'
+            reason = ''
+            lookup_cid = None
+            try:
+              info = bo.catalog_lookup(boid_s)
+              if isinstance(info, dict) and info.get('error'):
+                reason = f"lookup_error={info.get('error')}"
+              else:
+                lookup_cid = extract_lookup_color_id(info)
+                # Color evaluation (informative; do not over-reject uncolored BOIDs)
+                if '-' in boid_s:
+                  try:
+                    suffix = int(boid_s.split('-')[-1])
+                    if target is None or suffix == target or (lookup_cid is not None and lookup_cid == target):
+                      status = 'PASS'
+                    else:
+                      status = 'FAIL'
+                      reason = f"color_mismatch target={target} suffix={suffix} lookup_color_id={lookup_cid}"
+                  except Exception:
+                    status = 'PASS' if (target is None or (lookup_cid is not None and lookup_cid == target)) else 'FAIL'
+                    if status == 'FAIL':
+                      reason = f"suffix_parse_failed target={target} lookup_color_id={lookup_cid}"
+                else:
+                  # Uncolored BOID accepted if lookup succeeds; record hint.
+                  status = 'PASS_UNCOLORED'
+                  reason = f"lookup_color_id={lookup_cid} target={target}"
+
+            except Exception as e:
+              reason = f"exception={type(e).__name__}: {e}"
+
+            if status.startswith('PASS'):
+              ok += 1
+            else:
+              fail += 1
+
+            lines.append(
+              f"{status} | bl_part_id={bl_part_id} bo_color_id={target} boid={boid_s} | {reason}"
+            )
+
+          lines.append(f"summary_ok={ok} summary_fail={fail}")
+          out_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+          # Make failures visible to the workflow.
+          if fail:
+            raise SystemExit(1)
+
+          PY
+
       - name: Upload build artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -219,4 +405,28 @@ jobs:
             data/brickowl_api_cache.json
             data/build_checkpoint.json
             data/brickovery_build_error.log
+            data/teste_db
+            data base/brickovery.db
           if-no-files-found: warn
+
+      - name: Commit & push updated outputs (data/ and data base/)
+        if: always() && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git lfs install --local
+          git lfs track "data/*.db" "data base/*.db" || true
+
+          git add -A .gitattributes || true
+          git add -A data "data base" || true
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Update Brickovery outputs (automation)" || true
+          git pull --rebase
+          git push
