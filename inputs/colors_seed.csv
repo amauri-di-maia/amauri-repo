@@ -130,8 +130,6 @@ Medium Violet,1001,245,221
 Glitter Trans-Neon Green,1002,163,167
 Glitter Trans-Light Blue,1003,162,165
 Trans-Flame Yellowish Orange,1004,164,171
-Trans-Fire Yellow,1005,,162
-Trans-Light Royal Blue,1006,,163
 Reddish Lilac,1007,227,223
 Fabuland Orange,1012,160,60
 Modulex White,1013,123,154
@@ -227,4 +225,5 @@ Ochre Yellow,1145,173,255
 Warm Pink,1146,175,
 Blue Violet,1147,174,
 [No Color/Any Color],9999,0,
+
 
