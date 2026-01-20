@@ -343,6 +343,12 @@ def persist_brickowl_cache(cache_path: Path, cache: dict) -> None:
                 continue
             if k.startswith('boid_resolve:') and not v:
                 continue
+            # Avoid persisting error payloads from BrickOwl endpoints; they can be transient
+            # and would otherwise become "sticky" across workflow runs.
+            if k.startswith('lookup:') and isinstance(v, dict) and v.get('error'):
+                continue
+            if k.startswith('availability:') and isinstance(v, dict) and v.get('error'):
+                continue
         filtered[k] = v
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(filtered, ensure_ascii=False), encoding='utf-8')
@@ -826,12 +832,47 @@ def resolve_boid_for_pair(
 
     target_suffix = f"-{int(bo_color_id)}"
 
+    def _unwrap_info(info: Optional[dict]) -> Optional[dict]:
+        """Normaliza payloads BrickOwl que vêm embrulhados em {"data": {...}}."""
+        if not isinstance(info, dict):
+            return None
+        d = info.get('data')
+        if isinstance(d, dict):
+            return d
+        return info
+
+    def _candidate_variants(boid: str) -> List[str]:
+        """Gera variantes seguras quando o sufixo de cor foi "forçado" indevidamente.
+
+        Caso típico observado:
+          - candidato construído/selecionado: 998803-105
+          - BOID válido no BrickOwl: 998803  (sem hífen e sem sufixo de cor)
+
+        Regra:
+          - tentar sempre o candidato como veio
+          - se existir '-', tentar também o "base" (antes do 1º hífen)
+
+        Nota: NÃO concatena a cor sem hífen (ex.: 998803105), porque isso cria falsos BOIDs.
+        """
+        b = str(boid).strip()
+        if not b:
+            return []
+        out = [b]
+        if '-' in b:
+            base = b.split('-', 1)[0].strip()
+            if base and base != b:
+                out.append(base)
+        return out
+
     def _valid(boid: str) -> Tuple[bool, Optional[dict]]:
         b = str(boid).strip()
         if not b:
             return False, None
         try:
-            info = bo_api.catalog_lookup(b)
+            raw = bo_api.catalog_lookup(b)
+            if isinstance(raw, dict) and raw.get('error'):
+                return False, None
+            info = _unwrap_info(raw)
             if isinstance(info, dict) and info.get('error'):
                 return False, None
         except Exception:
@@ -848,6 +889,7 @@ def resolve_boid_for_pair(
         return True, info if isinstance(info, dict) else None
 
     def _extract_color_id(info: Optional[dict]) -> Optional[int]:
+        info = _unwrap_info(info)
         if not isinstance(info, dict):
             return None
         for k in ('color_id', 'colour_id', 'colorId', 'colourId'):
@@ -856,8 +898,10 @@ def resolve_boid_for_pair(
                     return int(info.get(k))
                 except Exception:
                     pass
-        c = info.get('color')
-        if isinstance(c, dict):
+        for ck in ('color', 'colour'):
+            c = info.get(ck)
+            if not isinstance(c, dict):
+                continue
             for k in ('id', 'color_id', 'colour_id'):
                 if k in c and c.get(k) is not None:
                     try:
@@ -866,20 +910,110 @@ def resolve_boid_for_pair(
                         pass
         return None
 
-    def _accept(boid: str, info: Optional[dict], origin: str) -> Optional[str]:
-        """Accept only if it matches target color by suffix or by lookup color_id."""
+    def _accept(
+        boid: str,
+        info: Optional[dict],
+        origin: str,
+        *,
+        allow_unknown_color_if_single_candidate: bool = False,
+    ) -> Optional[str]:
+        """Aceita BOID se o lookup validar e a cor corresponder.
+
+        Notas importantes:
+          - BOID pode ser "<id>-<color_id>" OU um número contínuo sem hífen.
+          - Em casos raros, o payload do /catalog/lookup pode não expor color_id.
+            Se for candidato único do /catalog/id_lookup, aceitamos mesmo assim para
+            não bloquear a DB (com log explícito).
+        """
         b = str(boid).strip()
         if not b:
             return None
+
         cid = _extract_color_id(info)
+
+        if cid is None:
+            # (A) Se for candidato único do id_lookup, aceitar para não bloquear a DB.
+            if allow_unknown_color_if_single_candidate:
+                bo_api.cache[cache_key] = b
+                issues_add(
+                    'WARN',
+                    'BRICKOWL_BOID_OK_NO_COLORCHECK',
+                    f"{bl_part_id}|{bo_color_id}",
+                    f"BOID validado mas sem color_id no payload; aceite por candidato único ({origin}): {b}",
+                )
+                return b
+
+            # (B) Último recurso dentro do próprio lookup: se o payload expuser um conjunto
+            # de cores possíveis e incluir a cor alvo, aceitar (também com aviso).
+            try:
+                hint_keys = (
+                    'colors', 'colours',
+                    'available_colors', 'available_colours',
+                    'color_ids', 'colour_ids',
+                )
+                info_u = _unwrap_info(info)
+                hinted: List[int] = []
+                if isinstance(info_u, dict):
+                    for hk in hint_keys:
+                        v = info_u.get(hk)
+                        if not v:
+                            continue
+                        if isinstance(v, list):
+                            for it in v:
+                                if isinstance(it, int):
+                                    hinted.append(int(it))
+                                elif isinstance(it, str) and it.strip().isdigit():
+                                    hinted.append(int(it.strip()))
+                                elif isinstance(it, dict):
+                                    cid2 = it.get('id') or it.get('color_id') or it.get('colour_id')
+                                    if cid2 is not None:
+                                        try:
+                                            hinted.append(int(cid2))
+                                        except Exception:
+                                            pass
+                        elif isinstance(v, dict):
+                            for kk in v.keys():
+                                try:
+                                    hinted.append(int(str(kk).strip()))
+                                except Exception:
+                                    pass
+                        if hinted:
+                            break
+                hinted_set = set(hinted)
+                if hinted_set and int(bo_color_id) in hinted_set:
+                    bo_api.cache[cache_key] = b
+                    issues_add(
+                        'WARN',
+                        'BRICKOWL_BOID_OK_BY_COLORS_HINT',
+                        f"{bl_part_id}|{bo_color_id}",
+                        f"BOID validado; payload não expôs color_id mas lista de cores inclui target; aceite ({origin}): {b}",
+                    )
+                    return b
+            except Exception:
+                pass
+
         if b.endswith(target_suffix) or (cid is not None and int(cid) == int(bo_color_id)):
             bo_api.cache[cache_key] = b
             issues_add('INFO', 'BRICKOWL_BOID_OK', f"{bl_part_id}|{bo_color_id}", f"BOID validado ({origin}): {b}")
             return b
+
+        # Ajuda a diagnosticar quando o BOID existe mas não é da cor esperada.
+        if cid is not None:
+            try:
+                if int(cid) != int(bo_color_id):
+                    issues_add(
+                        'INFO',
+                        'BRICKOWL_BOID_COLOR_MISMATCH',
+                        f"{bl_part_id}|{bo_color_id}",
+                        f"BOID validou mas cor diferente (lookup color_id={cid}, target={bo_color_id}) boid={b} origin={origin}",
+                    )
+            except Exception:
+                pass
         return None
 
     def _extract_lookup_ids(info: Optional[dict]) -> List[Tuple[str, str]]:
         out: List[Tuple[str, str]] = []
+        info = _unwrap_info(info)
         if not isinstance(info, dict):
             return out
         for k, id_type in (('design_id', 'design_id'), ('item_no', 'item_no'), ('set_number', 'set_number')):
@@ -910,31 +1044,42 @@ def resolve_boid_for_pair(
         if not boids:
             return None
 
+        allow_unknown_color = origin.startswith('id_lookup:') and len(boids) == 1
+
         # 1) try direct suffix candidates first
         for b in boids:
             if b.endswith(target_suffix):
-                ok, info = _valid(b)
-                if ok:
-                    a = _accept(b, info, origin)
+                for cand in _candidate_variants(b):
+                    ok, info = _valid(cand)
+                    if not ok:
+                        continue
+                    a = _accept(cand, info, origin, allow_unknown_color_if_single_candidate=allow_unknown_color)
                     if a:
                         return a
 
         # 2) validate each candidate and match by lookup color_id
         for b in boids[:25]:
-            ok, info = _valid(b)
-            if not ok:
-                continue
-            a = _accept(b, info, origin)
-            if a:
-                return a
+            for cand in _candidate_variants(b):
+                ok, info = _valid(cand)
+                if not ok:
+                    continue
+                a = _accept(cand, info, origin, allow_unknown_color_if_single_candidate=allow_unknown_color)
+                if a:
+                    return a
 
         # 3) fabricate only if we actually have a base candidate (no '-')
         if allow_fabricate_from_base:
             bases = [b for b in boids if '-' not in b]
             for base in bases[:10]:
-                fabricated = f"{base}{target_suffix}"
-                ok, info = _valid(fabricated)
-                if ok:
+                # BrickOwl normalmente usa "<id>-<color_id>", mas há exceções observadas
+                # onde o BOID é um número contínuo sem hífen (ex: 998803105).
+                fabricated_candidates = [
+                    f"{base}{target_suffix}",
+                ]
+                for fabricated in fabricated_candidates:
+                    ok, info = _valid(fabricated)
+                    if not ok:
+                        continue
                     a = _accept(fabricated, info, f"{origin}:fabricated")
                     if a:
                         return a
@@ -975,31 +1120,95 @@ def resolve_boid_for_pair(
             if base and base not in seen:
                 lookup_seeds.append(base); seen.add(base)
 
-    recovery_used_seed = None
-    recovery_info = None
+    recovery_successes: List[Tuple[str, dict]] = []
     for seed in lookup_seeds:
         ok, info = _valid(seed)
         if ok and isinstance(info, dict):
-            recovery_used_seed = seed
-            recovery_info = info
+            recovery_successes.append((seed, info))
+        # Limite defensivo: não explodir requests quando há muitos seeds
+        if len(recovery_successes) >= 3:
             break
 
-    if recovery_used_seed and isinstance(recovery_info, dict):
-        ids = _extract_lookup_ids(recovery_info)
-        # Prefer design_id -> item_no
-        for id_type, id_val in ids:
-            if id_type == 'bl_item_no':
+    def _extract_available_colors(info: Optional[dict]) -> Optional[List[int]]:
+        """Tenta extrair lista de cores 'disponíveis' do payload de lookup, se existir."""
+        info = _unwrap_info(info)
+        if not isinstance(info, dict):
+            return None
+        keys = (
+            'colors', 'colours',
+            'available_colors', 'available_colours',
+            'color_ids', 'colour_ids',
+        )
+        for k in keys:
+            v = info.get(k)
+            if not v:
                 continue
-            try:
-                boids2 = bo_api.catalog_id_lookup(id_value=id_val, item_type='Part', id_type=id_type)
-            except Exception:
-                continue
-            if not boids2:
-                continue
-            has_base2 = any('-' not in str(b).strip() for b in boids2)
-            found2 = _try_from_boids(boids2, allow_fabricate_from_base=has_base2, origin=f"recovery:id_lookup:{id_type}")
+            out: List[int] = []
+            if isinstance(v, list):
+                for it in v:
+                    if isinstance(it, int):
+                        out.append(int(it))
+                    elif isinstance(it, str) and it.strip().isdigit():
+                        out.append(int(it.strip()))
+                    elif isinstance(it, dict):
+                        cid = it.get('id') or it.get('color_id') or it.get('colour_id')
+                        try:
+                            if cid is not None:
+                                out.append(int(cid))
+                        except Exception:
+                            pass
+            elif isinstance(v, dict):
+                for kk in v.keys():
+                    try:
+                        out.append(int(str(kk).strip()))
+                    except Exception:
+                        pass
+            out = sorted(set(out))
+            return out if out else None
+        return None
+
+    if recovery_successes:
+        # Log (uma vez) hints de cores, se o payload expuser
+        cands = _extract_available_colors(recovery_successes[0][1])
+        if cands:
+            issues_add(
+                'INFO',
+                'BRICKOWL_LOOKUP_AVAILABLE_COLORS',
+                f"{bl_part_id}|{bo_color_id}",
+                f"lookup(seed={recovery_successes[0][0]}) expôs {len(cands)} cores; target_in={int(bo_color_id) in set(cands)}; sample={cands[:20]}",
+            )
+
+        aggregated: Set[str] = set()
+        used_paths: List[str] = []
+
+        for seed, info in recovery_successes:
+            ids = _extract_lookup_ids(info)
+            for id_type, id_val in ids:
+                if id_type == 'bl_item_no':
+                    continue
+                try:
+                    boids2 = bo_api.catalog_id_lookup(id_value=id_val, item_type='Part', id_type=id_type)
+                except Exception:
+                    continue
+                if not boids2:
+                    continue
+                for b in boids2:
+                    bs = str(b).strip()
+                    if bs:
+                        aggregated.add(bs)
+                used_paths.append(f"{id_type}={id_val}")
+
+        if aggregated:
+            boids_agg = sorted(aggregated)
+            has_base2 = any('-' not in str(b).strip() for b in boids_agg)
+            found2 = _try_from_boids(boids_agg, allow_fabricate_from_base=has_base2, origin='recovery:aggregated_id_lookup')
             if found2:
-                issues_add('INFO', 'BRICKOWL_BOID_RECOVERED', f"{bl_part_id}|{bo_color_id}", f"Recuperação via lookup(seed={recovery_used_seed}) -> id_lookup({id_type}={id_val})")
+                issues_add(
+                    'INFO',
+                    'BRICKOWL_BOID_RECOVERED',
+                    f"{bl_part_id}|{bo_color_id}",
+                    f"Recuperação via lookup(seeds={len(recovery_successes)}) -> id_lookup({', '.join(used_paths[:6])}{'...' if len(used_paths)>6 else ''}) cands={len(boids_agg)}",
+                )
                 return found2
 
     # --- Step 3 (last resort): catalog/search by BL id and test candidates ---
@@ -1025,11 +1234,12 @@ def resolve_boid_for_pair(
             issues_add('INFO', 'BRICKOWL_BOID_RECOVERED_BY_SEARCH', f"{bl_part_id}|{bo_color_id}", f"Recuperado via catalog/search (cands={len(boids3)})")
             return found3
 
+    example = str(boids1[0]).strip() if boids1 else ''
     issues_add(
         'WARN',
         'BRICKOWL_BOID_LOOKUP_INVALID',
         f"{bl_part_id}|{bo_color_id}",
-        f"Nenhum BOID validado. candidatos id_lookup={len(boids1)} (ex: {seed})",
+        f"Nenhum BOID validado. candidatos id_lookup={len(boids1)} (ex: {example})",
     )
     return None
 
