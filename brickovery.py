@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import json
 import os
 import signal
@@ -239,6 +240,93 @@ def apply_weights_from_csv(con, cur, weights_csv: Path, *, overwrite: bool, add_
         return updated
 
 
+
+def fill_missing_weights_from_bricklink(
+    con,
+    cur,
+    oauth: OAuth1,
+    *,
+    add_issue: callable,
+    min_interval_s: float = 0.25,
+    commit_every: int = 200,
+    max_runtime_seconds: float = 0.0,
+    t0: float = 0.0,
+) -> int:
+    """Preenche weights em falta consultando BrickLink (GET /items/{type}/{no}).
+
+    Estratégia:
+      - Faz lookup por bl_part_id (sem cor) e tenta extrair 'weight' (gramas)
+      - Atualiza todas as linhas desse bl_part_id onde weight IS NULL
+
+    Nota:
+      - Só corre para parts com weight IS NULL.
+      - Respeita min_interval_s para evitar rate-limit.
+    """
+    try:
+        rows = cur.execute(
+            "SELECT DISTINCT bl_part_id FROM part_color_map WHERE weight IS NULL AND bl_part_id IS NOT NULL"
+        ).fetchall()
+    except Exception as e:
+        add_issue('WARN', 'WEIGHTS_BRICKLINK_QUERY_FAILED', '', f'Falha ao listar parts sem weight: {e}')
+        return 0
+
+    parts = [r[0] for r in rows if r and r[0]]
+    if not parts:
+        return 0
+
+    updated_rows = 0
+    filled_parts = 0
+    missing_parts = 0
+
+    last_call = 0.0
+
+    for i, part in enumerate(parts, 1):
+        if _STOP:
+            break
+        if max_runtime_seconds and t0 and (now_s() - float(t0)) > float(max_runtime_seconds):
+            add_issue('WARN', 'WEIGHTS_BRICKLINK_STOP_MAX_RUNTIME', '', f'Parado por max-runtime-seconds após {i-1} partes.')
+            break
+
+        # throttle
+        dt = time.time() - last_call
+        if dt < float(min_interval_s):
+            time.sleep(float(min_interval_s) - dt)
+        last_call = time.time()
+
+        w = None
+        try:
+            w = bricklink_get_item_weight(str(part), oauth, item_type='P', timeout_s=30)
+        except Exception:
+            w = None
+
+        if w is None:
+            missing_parts += 1
+        else:
+            try:
+                cur.execute(
+                    "UPDATE part_color_map SET weight=? WHERE bl_part_id=? AND weight IS NULL",
+                    (float(w), str(part)),
+                )
+                if cur.rowcount:
+                    updated_rows += int(cur.rowcount)
+                    filled_parts += 1
+            except Exception:
+                pass
+
+        if commit_every and (i % int(commit_every) == 0):
+            con.commit()
+
+    con.commit()
+    add_issue(
+        'INFO',
+        'WEIGHTS_BRICKLINK_DONE',
+        '',
+        f'BrickLink weight fill: parts_missing_before={len(parts)}, parts_filled={filled_parts}, parts_still_missing={missing_parts}, rows_updated={updated_rows}.',
+    )
+    return updated_rows
+
+
+
 def persist_brickowl_cache(cache_path: Path, cache: dict) -> None:
     """Persist BrickOwl cache to disk, filtering negative entries.
 
@@ -393,6 +481,25 @@ def bricklink_list_item_colors(bl_part_id: str, oauth: OAuth1, item_type: str = 
         except Exception:
             continue
     return sorted(set(out))
+
+
+
+def bricklink_get_item_weight(bl_part_id: str, oauth: OAuth1, item_type: str = 'P', timeout_s: int = 30) -> Optional[float]:
+    """GET /items/{type}/{no} and extract catalog weight (grams) when available."""
+    t = ITEMTYPE_TO_PATH.get((item_type or 'P').strip().upper(), 'part')
+    no = quote((bl_part_id or '').strip(), safe='')
+    url = f"https://api.bricklink.com/api/store/v1/items/{t}/{no}"
+    r = requests.get(url, auth=oauth, timeout=timeout_s)
+    r.raise_for_status()
+    data = r.json() or {}
+    item = data.get('data') or {}
+    w = item.get('weight')
+    if w is None or str(w).strip() == '':
+        return None
+    try:
+        return float(w)
+    except Exception:
+        return None
 
 
 # -----------------------------
@@ -595,6 +702,33 @@ class BrickOwlAPI:
         self.cache[key] = out
         return out
 
+
+    def catalog_search(self, query: str, page: int = 1) -> List[dict]:
+        """GET /catalog/search?query=...&page=...
+
+        Usado apenas como caminho de recuperação quando id_lookup + lookup não convergem.
+        Devolve uma lista de dicts (pode ser vazia).
+        """
+        q = str(query).strip()
+        if not q:
+            return []
+        page_i = int(page) if int(page) > 0 else 1
+        key = f"search:{q}:{page_i}"
+        if key in self.cache:
+            v = self.cache[key]
+            return list(v) if isinstance(v, list) else []
+
+        url = f"{BRICKOWL_CATALOG_BASE_URL}/search"
+        data = self._get(url, {"key": self.api_key, "query": q, "page": page_i}, self.min_interval_s)
+        items = data.get("data") if isinstance(data, dict) else data
+        out: List[dict] = []
+        if isinstance(items, list):
+            for it in items:
+                if isinstance(it, dict):
+                    out.append(it)
+        self.cache[key] = out
+        return out
+
     def catalog_lookup(self, boid: str) -> dict:
         """GET /catalog/lookup?boid=... and return parsed JSON.
 
@@ -644,16 +778,21 @@ class BrickOwlAPI:
 
 
 def pick_boid_base(boids: List[str]) -> str:
-    """Preferimos um BOID base (sem sufixo -<cor>) quando existir.
+    """Escolhe um BOID base de forma não destrutiva.
 
-    Se só existirem BOIDs com cor, devolve a parte antes do '-' do 1º candidato.
+    - Se existir um candidato sem '-' (BOID aparentemente 'base'), usa-o.
+    - Caso contrário, usa o 1º candidato tal como está (NÃO faz split pelo '-').
+
+    Isto evita construir BOIDs inválidos quando o /catalog/id_lookup devolve apenas BOIDs já coloridos.
     """
     for b in boids:
-        if '-' not in str(b):
-            return str(b).strip()
+        bs = str(b).strip()
+        if bs and '-' not in bs:
+            return bs
     if boids:
-        return str(boids[0]).split('-', 1)[0].strip()
+        return str(boids[0]).strip()
     raise ValueError('id_lookup não devolveu BOIDs para este bl_item_no.')
+
 
 def resolve_boid_for_pair(
     bo_api: BrickOwlAPI,
@@ -664,108 +803,235 @@ def resolve_boid_for_pair(
     country: str = "PT",
     validate_availability: bool = False,
 ) -> Optional[str]:
-    """Resolve BOID for (bl_part_id, bo_color_id) using the user's validated approach.
+    """Resolve BOID for (bl_part_id, bo_color_id) com recuperação rigorosa.
 
-    Approach (aligned with the standalone test snippet):
-      1) catalog/id_lookup using BrickLink item number (id_type=bl_item_no)
-      2) pick a base BOID (prefer one without "-<color>")
-      3) if id_lookup already returns the target "-<bo_color_id>", use that
-         else, build: f"{base}-{bo_color_id}"
-      4) validate via catalog/lookup (and optionally catalog/availability)
+    Regras (pedido do projeto):
+      - Se o BOID construído/selecionado não validar no /catalog/lookup, NÃO desistir.
+      - Em caso de erro típico (BRICKOWL_BOID_LOOKUP_INVALID), aplicar recuperação:
+            1) usar apenas BOIDs devolvidos por /catalog/id_lookup (id_type=bl_item_no) e fazer lookup sem fabricar cor
+            2) a partir do resultado do lookup, usar design_id/item_no para um novo /catalog/id_lookup
+            3) só aceitar BOID final se /catalog/lookup validar e (suffix '-<bo_color_id>' OU color_id do lookup == bo_color_id)
 
-    Returns a BOID string if validated; otherwise None.
-
-    Notes:
-    - We DO NOT persist negative caches (None/empty) to avoid sticky failures.
-    - We DO NOT fall back to "first candidate" (that creates wrong BOIDs).
+    Retorna BOID validado ou None.
     """
 
-    # Only use positive cache hits.
-    cache_key = f"boid_resolve:{bl_part_id}-{int(bo_color_id)}"
+    cache_key = f"boid_resolve:{str(bl_part_id).strip()}-{int(bo_color_id)}"
     cached = bo_api.cache.get(cache_key)
     if cached:
         return str(cached)
 
-    try:
-        boids = bo_api.catalog_id_lookup(id_value=str(bl_part_id), item_type="Part", id_type="bl_item_no")
-    except Exception as e:
-        issues_add("WARN", "BRICKOWL_ID_LOOKUP_FAILED", f"{bl_part_id}", f"id_lookup falhou: {e}")
-        return None
-
-    if not boids:
-        issues_add("WARN", "BRICKOWL_ID_LOOKUP_EMPTY", f"{bl_part_id}", f"id_lookup devolveu 0 BOIDs para bl_item_no={bl_part_id}")
-        return None
-
-    # Prefer base without hyphen when available.
-    try:
-        base = pick_boid_base(boids)
-    except Exception as e:
-        issues_add("WARN", "BRICKOWL_ID_LOOKUP_NO_BASE", f"{bl_part_id}", f"Não foi possível escolher base a partir do id_lookup: {e}")
+    bl_part_id = str(bl_part_id).strip()
+    if not bl_part_id:
         return None
 
     target_suffix = f"-{int(bo_color_id)}"
 
-    # Use an exact candidate if id_lookup already returned it.
-    boid_color = next((b for b in boids if str(b).endswith(target_suffix)), f"{base}{target_suffix}")
-
-    def _valid(boid: str) -> bool:
+    def _valid(boid: str) -> Tuple[bool, Optional[dict]]:
         b = str(boid).strip()
         if not b:
-            return False
+            return False, None
         try:
             info = bo_api.catalog_lookup(b)
-            if isinstance(info, dict) and info.get("error"):
-                return False
+            if isinstance(info, dict) and info.get('error'):
+                return False, None
         except Exception:
-            return False
+            return False, None
+
         if validate_availability:
             try:
                 a = bo_api.catalog_availability(b, country=country)
-                if isinstance(a, dict) and a.get("error"):
-                    return False
+                if isinstance(a, dict) and a.get('error'):
+                    return False, None
             except Exception:
-                return False
-        return True
+                return False, None
 
-    # Validate the chosen BOID.
-    if _valid(boid_color):
-        bo_api.cache[cache_key] = str(boid_color)
-        return str(boid_color)
+        return True, info if isinstance(info, dict) else None
 
-    # If validation failed, try alternative bases from other candidates (rare, but helps edge cases).
-    bases = []
+    def _extract_color_id(info: Optional[dict]) -> Optional[int]:
+        if not isinstance(info, dict):
+            return None
+        for k in ('color_id', 'colour_id', 'colorId', 'colourId'):
+            if k in info and info.get(k) is not None:
+                try:
+                    return int(info.get(k))
+                except Exception:
+                    pass
+        c = info.get('color')
+        if isinstance(c, dict):
+            for k in ('id', 'color_id', 'colour_id'):
+                if k in c and c.get(k) is not None:
+                    try:
+                        return int(c.get(k))
+                    except Exception:
+                        pass
+        return None
+
+    def _accept(boid: str, info: Optional[dict], origin: str) -> Optional[str]:
+        """Accept only if it matches target color by suffix or by lookup color_id."""
+        b = str(boid).strip()
+        if not b:
+            return None
+        cid = _extract_color_id(info)
+        if b.endswith(target_suffix) or (cid is not None and int(cid) == int(bo_color_id)):
+            bo_api.cache[cache_key] = b
+            issues_add('INFO', 'BRICKOWL_BOID_OK', f"{bl_part_id}|{bo_color_id}", f"BOID validado ({origin}): {b}")
+            return b
+        return None
+
+    def _extract_lookup_ids(info: Optional[dict]) -> List[Tuple[str, str]]:
+        out: List[Tuple[str, str]] = []
+        if not isinstance(info, dict):
+            return out
+        for k, id_type in (('design_id', 'design_id'), ('item_no', 'item_no'), ('set_number', 'set_number')):
+            v = info.get(k)
+            if v is None or str(v).strip() == '':
+                continue
+            out.append((id_type, str(v).strip()))
+        ids = info.get('ids')
+        if isinstance(ids, dict):
+            for k, id_type in (('design_id', 'design_id'), ('item_no', 'item_no'), ('bl_item_no', 'bl_item_no'), ('set_number', 'set_number')):
+                v = ids.get(k)
+                if v is None or str(v).strip() == '':
+                    continue
+                out.append((id_type, str(v).strip()))
+        # de-dup
+        seen = set()
+        uniq: List[Tuple[str, str]] = []
+        for t, v in out:
+            key = (t, v)
+            if key in seen:
+                continue
+            seen.add(key)
+            uniq.append((t, v))
+        return uniq
+
+    def _try_from_boids(boids: List[str], *, allow_fabricate_from_base: bool, origin: str) -> Optional[str]:
+        boids = [str(b).strip() for b in (boids or []) if str(b).strip()]
+        if not boids:
+            return None
+
+        # 1) try direct suffix candidates first
+        for b in boids:
+            if b.endswith(target_suffix):
+                ok, info = _valid(b)
+                if ok:
+                    a = _accept(b, info, origin)
+                    if a:
+                        return a
+
+        # 2) validate each candidate and match by lookup color_id
+        for b in boids[:25]:
+            ok, info = _valid(b)
+            if not ok:
+                continue
+            a = _accept(b, info, origin)
+            if a:
+                return a
+
+        # 3) fabricate only if we actually have a base candidate (no '-')
+        if allow_fabricate_from_base:
+            bases = [b for b in boids if '-' not in b]
+            for base in bases[:10]:
+                fabricated = f"{base}{target_suffix}"
+                ok, info = _valid(fabricated)
+                if ok:
+                    a = _accept(fabricated, info, f"{origin}:fabricated")
+                    if a:
+                        return a
+
+        return None
+
+    # --- Step 1: id_lookup by BL id ---
+    try:
+        boids1 = bo_api.catalog_id_lookup(id_value=bl_part_id, item_type='Part', id_type='bl_item_no')
+    except Exception as e:
+        issues_add('WARN', 'BRICKOWL_ID_LOOKUP_FAILED', f"{bl_part_id}", f"id_lookup falhou: {e}")
+        return None
+
+    if not boids1:
+        issues_add('WARN', 'BRICKOWL_ID_LOOKUP_EMPTY', f"{bl_part_id}", f"id_lookup devolveu 0 BOIDs para bl_item_no={bl_part_id}")
+        return None
+
+    has_base = any('-' not in str(b).strip() for b in boids1)
+    found = _try_from_boids(boids1, allow_fabricate_from_base=has_base, origin='id_lookup:bl_item_no')
+    if found:
+        return found
+
+    # --- Step 2 (recovery): lookup sem cor -> id_lookup usando design_id/item_no ---
+    # Regra pedida: quando /catalog/lookup falha para BOID colorido, tentar lookup sem cor.
+    # Como a API /catalog/lookup só aceita BOID, fazemos 'lookup sem cor' tentando o BOID base
+    # (sem sufixo '-<color>') derivado dos candidatos do id_lookup.
+
+    lookup_seeds = []
     seen = set()
-    for c in boids:
-        cs = str(c).strip()
-        if not cs:
+    for b in boids1[:10]:
+        bs = str(b).strip()
+        if not bs:
             continue
-        b = cs.split('-', 1)[0].strip()
-        if b and b not in seen:
-            seen.add(b)
-            bases.append(b)
+        if bs not in seen:
+            lookup_seeds.append(bs); seen.add(bs)
+        if '-' in bs:
+            base = bs.split('-', 1)[0].strip()
+            if base and base not in seen:
+                lookup_seeds.append(base); seen.add(base)
 
-    for b in bases:
-        alt = f"{b}{target_suffix}"
-        if alt == str(boid_color):
+    recovery_used_seed = None
+    recovery_info = None
+    for seed in lookup_seeds:
+        ok, info = _valid(seed)
+        if ok and isinstance(info, dict):
+            recovery_used_seed = seed
+            recovery_info = info
+            break
+
+    if recovery_used_seed and isinstance(recovery_info, dict):
+        ids = _extract_lookup_ids(recovery_info)
+        # Prefer design_id -> item_no
+        for id_type, id_val in ids:
+            if id_type == 'bl_item_no':
+                continue
+            try:
+                boids2 = bo_api.catalog_id_lookup(id_value=id_val, item_type='Part', id_type=id_type)
+            except Exception:
+                continue
+            if not boids2:
+                continue
+            has_base2 = any('-' not in str(b).strip() for b in boids2)
+            found2 = _try_from_boids(boids2, allow_fabricate_from_base=has_base2, origin=f"recovery:id_lookup:{id_type}")
+            if found2:
+                issues_add('INFO', 'BRICKOWL_BOID_RECOVERED', f"{bl_part_id}|{bo_color_id}", f"Recuperação via lookup(seed={recovery_used_seed}) -> id_lookup({id_type}={id_val})")
+                return found2
+
+    # --- Step 3 (last resort): catalog/search by BL id and test candidates ---
+    try:
+        hits = bo_api.catalog_search(bl_part_id, page=1)
+    except Exception:
+        hits = []
+    boids3: List[str] = []
+    for h in hits or []:
+        if not isinstance(h, dict):
             continue
-        if _valid(alt):
-            bo_api.cache[cache_key] = str(alt)
-            issues_add(
-                "INFO",
-                "BRICKOWL_BOID_ALT_BASE_OK",
-                f"{bl_part_id}",
-                f"BOID validado após trocar base (bo_color_id={bo_color_id}): {alt}",
-            )
-            return str(alt)
+        b = h.get('boid') or h.get('id') or h.get('bo_id')
+        if b is None:
+            continue
+        bs = str(b).strip()
+        if bs:
+            boids3.append(bs)
+    boids3 = sorted(set(boids3))
+    if boids3:
+        has_base3 = any('-' not in str(b).strip() for b in boids3)
+        found3 = _try_from_boids(boids3, allow_fabricate_from_base=has_base3, origin='recovery:search')
+        if found3:
+            issues_add('INFO', 'BRICKOWL_BOID_RECOVERED_BY_SEARCH', f"{bl_part_id}|{bo_color_id}", f"Recuperado via catalog/search (cands={len(boids3)})")
+            return found3
 
     issues_add(
-        "WARN",
-        "BRICKOWL_BOID_LOOKUP_INVALID",
+        'WARN',
+        'BRICKOWL_BOID_LOOKUP_INVALID',
         f"{bl_part_id}|{bo_color_id}",
-        f"Construído/selecionado '{boid_color}' mas catalog/lookup não validou (boids candidatos: {len(boids)}).",
+        f"Nenhum BOID validado. candidatos id_lookup={len(boids1)} (ex: {seed})",
     )
     return None
-
 
 def init_db(db_path: Path) -> None:
 
@@ -773,43 +1039,100 @@ def init_db(db_path: Path) -> None:
     con = sqlite3.connect(str(db_path))
     cur = con.cursor()
 
-    # If table exists with legacy schema (boid INTEGER), drop it so we can recreate with boid TEXT.
-    try:
-        cols = {row[1]: (row[2] or "").upper() for row in cur.execute("PRAGMA table_info(part_color_map)").fetchall()}
-        if cols and (cols.get("boid", "") != "TEXT"):
-            cur.execute("DROP TABLE IF EXISTS part_color_map")
-            con.commit()
-    except Exception:
-        pass
+    def _cols(table: str) -> dict:
+        try:
+            return {row[1]: (row[2] or '').upper() for row in cur.execute(f"PRAGMA table_info({table})").fetchall()}
+        except Exception:
+            return {}
 
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS part_color_map (
-          bl_part_id TEXT NOT NULL,
-          element_id TEXT NOT NULL,
-          rb_part_num TEXT,
-          rb_color_id INTEGER,
-          bl_color_id INTEGER,
-          bo_color_id INTEGER,
-          ldraw_color_id INTEGER,
-          weight REAL,
-          boid TEXT,
-          source TEXT,
-          PRIMARY KEY (bl_part_id, element_id, bl_color_id)
+    cols = _cols('part_color_map')
+
+    # Desired schema (no weight_g; boid TEXT)
+    def _create_schema() -> None:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS part_color_map (
+              bl_part_id TEXT NOT NULL,
+              element_id TEXT NOT NULL,
+              rb_part_num TEXT,
+              rb_color_id INTEGER,
+              bl_color_id INTEGER,
+              bo_color_id INTEGER,
+              ldraw_color_id INTEGER,
+              weight REAL,
+              boid TEXT,
+              source TEXT,
+              PRIMARY KEY (bl_part_id, element_id, bl_color_id)
+            )
+            """
         )
-        """
-    )
 
-    
+    need_rebuild = False
+    if cols:
+        if cols.get('boid', 'TEXT') != 'TEXT':
+            need_rebuild = True
+        if 'weight_g' in cols:
+            # Must be removed (user request). Prefer DROP COLUMN; if unavailable, rebuild.
+            try:
+                cur.execute('ALTER TABLE part_color_map DROP COLUMN weight_g')
+                con.commit()
+                cols = _cols('part_color_map')
+            except Exception:
+                need_rebuild = True
+        if 'weight' not in cols and 'weight_g' in cols:
+            need_rebuild = True
 
-    # Ensure weight column exists (migration)
-    try:
-        cols2 = {row[1] for row in cur.execute("PRAGMA table_info(part_color_map)").fetchall()}
-        if "weight" not in cols2:
-            cur.execute("ALTER TABLE part_color_map ADD COLUMN weight REAL")
+    if cols and need_rebuild:
+        # Non-destructive migration: rebuild table preserving data.
+        cur.execute('ALTER TABLE part_color_map RENAME TO part_color_map_old')
+        _create_schema()
+
+        old_cols = _cols('part_color_map_old')
+        w_expr = 'NULL'
+        if 'weight' in old_cols:
+            w_expr = 'weight'
+        elif 'weight_g' in old_cols:
+            w_expr = 'weight_g'
+
+        boid_expr = 'NULL'
+        if 'boid' in old_cols:
+            boid_expr = 'CAST(boid AS TEXT)'
+
+        source_expr = 'NULL'
+        if 'source' in old_cols:
+            source_expr = 'source'
+
+        cur.execute(
+            f"""
+            INSERT OR REPLACE INTO part_color_map (
+              bl_part_id, element_id, rb_part_num, rb_color_id,
+              bl_color_id, bo_color_id, ldraw_color_id,
+              weight, boid, source
+            )
+            SELECT
+              bl_part_id, element_id, rb_part_num, rb_color_id,
+              bl_color_id, bo_color_id, ldraw_color_id,
+              {w_expr} AS weight,
+              {boid_expr} AS boid,
+              {source_expr} AS source
+            FROM part_color_map_old
+            """
+        )
+        cur.execute('DROP TABLE part_color_map_old')
+        con.commit()
+        cols = _cols('part_color_map')
+
+    # Create if missing
+    _create_schema()
+
+    # Ensure weight column exists (safety)
+    cols2 = _cols('part_color_map')
+    if 'weight' not in cols2:
+        try:
+            cur.execute('ALTER TABLE part_color_map ADD COLUMN weight REAL')
             con.commit()
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     cur.execute(
         """
@@ -1240,9 +1563,6 @@ def main() -> int:
                     "stop_reason": _STOP_REASON,
                 },
             )
-
-
-
         # -----------------
         # WEIGHTS (apply from inputs/bricklink/parts_weight.csv by default)
         # -----------------
@@ -1250,7 +1570,6 @@ def main() -> int:
             try:
                 wp = Path(args.weights_csv)
                 # Skip if nothing missing and not overwrite
-                missing_w = None
                 try:
                     missing_w = cur.execute("SELECT COUNT(1) FROM part_color_map WHERE weight IS NULL").fetchone()[0]
                 except Exception:
@@ -1260,11 +1579,37 @@ def main() -> int:
                     print(f"[WEIGHT] applying weights from: {wp} (missing={missing_w})")
                     apply_weights_from_csv(con, cur, wp, overwrite=bool(args.weights_overwrite), add_issue=add_issue)
                     con.commit()
+
+                    # Fallback: preencher weights em falta via BrickLink API (por BL ID, sem cor)
+                    try:
+                        missing_after_csv = cur.execute("SELECT COUNT(1) FROM part_color_map WHERE weight IS NULL").fetchone()[0]
+                    except Exception:
+                        missing_after_csv = None
+
+                    if missing_after_csv is not None and int(missing_after_csv) > 0:
+                        oauth_w = bricklink_oauth_from_env()
+                        if oauth_w is None:
+                            add_issue("WARN", "WEIGHTS_BRICKLINK_OAUTH_MISSING", "", "BrickLink OAuth não configurado; weights em falta permanecerão NULL.")
+                            con.commit()
+                        else:
+                            print(f"[WEIGHT] BrickLink fallback: missing_after_csv={missing_after_csv}")
+                            fill_missing_weights_from_bricklink(
+                                con,
+                                cur,
+                                oauth_w,
+                                add_issue=add_issue,
+                                min_interval_s=0.25,
+                                commit_every=200,
+                                max_runtime_seconds=float(args.max_runtime_seconds or 0),
+                                t0=float(t0),
+                            )
+                            con.commit()
                 else:
                     print("[WEIGHT] skip (weight já preenchido)")
             except Exception as e:
                 add_issue("WARN", "WEIGHTS_APPLY_FAILED", "", f"Falha ao aplicar weights: {e}")
                 con.commit()
+
 
         # -----------------
         # BOID resolution (resume)
