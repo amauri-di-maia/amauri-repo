@@ -108,6 +108,15 @@ def is_sentinel_rb_color_id(rb_color_id: int) -> bool:
     return rb_color_id < 0
 
 
+# RB colors that are allowed to have no BrickLink equivalent (keep bl_color_id NULL without WARN).
+# These are typically IR/Lens or internal/special colors that do not exist in BrickLink's color guide.
+RB_COLOR_IDS_ALLOW_BL_NULL = {32}
+
+def is_disallowed_bl_color_id(bl_color_id: Optional[int]) -> bool:
+    # BrickLink color_id=0 is 'Not Applicable' and MUST NOT be used as an automatic mapping for real colors.
+    return bl_color_id == 0
+
+
 def read_csv_dicts(path: Path) -> Iterable[Dict[str, str]]:
     with path.open("r", encoding="utf-8-sig", newline="") as f:
         r = csv.DictReader(f)
@@ -813,6 +822,8 @@ def resolve_bl_color_by_part_support(
     if not candidates:
         return None, {}, 0
     if len(candidates) == 1:
+        if is_disallowed_bl_color_id(candidates[0]):
+            return None, {candidates[0]: 0}, 0
         return candidates[0], {candidates[0]: 0}, 0
 
     parts = part_ids[:max_part_checks]
@@ -861,6 +872,7 @@ def main() -> int:
     ap.add_argument("--rb-colors", required=True)
     ap.add_argument("--seed", required=True)
     ap.add_argument("--element-overrides", default="", help="CSV opcional: element_id,bl_color_id para fixar conflicts do codes.xml")
+    ap.add_argument("--emit-element-override-suggestions", action="store_true", help="Escreve element_overrides_suggested.csv (para revisão manual).")
 
 
     ap.add_argument("--out", required=True)
@@ -927,6 +939,9 @@ def main() -> int:
         if bl_id is None:
             unknown_color_tokens[color_val] += 1
             continue
+        # Ignore BrickLink color_id=0 ('Not Applicable') from codes.xml to avoid poisoning resolution.
+        if is_disallowed_bl_color_id(bl_id):
+            continue
         element_color_counts[element_id][bl_id] += 1
         element_parts[element_id].add(itemid)
 
@@ -964,12 +979,12 @@ def main() -> int:
         if ov is not None:
             element_resolved_color[element_id] = ov
             issues.append({
-                'severity': 'WARN',
+                'severity': 'INFO',
                 'issue_type': 'BL_CODE_ELEMENT_COLOR_CONFLICT_RESOLVED_BY_ELEMENT_OVERRIDE',
                 'rb_color_id': '',
                 'name': '',
                 'details': f'Element {element_id} tinha múltiplos BL color_id {candidates}; resolvido para {ov} via element_overrides.',
-                'suggestions': 'Override aplicado. Mantém este ficheiro sob versionamento.',
+                'suggestions': 'Override aplicado. (Opcional) Mantém este ficheiro sob versionamento para determinismo total.',
             })
             continue
 
@@ -980,7 +995,7 @@ def main() -> int:
             if expected_bl is not None and expected_bl in candidates:
                 element_resolved_color[element_id] = expected_bl
                 issues.append({
-                    'severity': 'WARN',
+                    'severity': 'INFO',
                     'issue_type': 'BL_CODE_ELEMENT_COLOR_CONFLICT_RESOLVED_BY_RB_ELEMENT',
                     'rb_color_id': '',
                     'name': '',
@@ -995,7 +1010,7 @@ def main() -> int:
                 if heuristic is not None:
                     element_resolved_color[element_id] = heuristic
                     issues.append({
-                        'severity': 'WARN',
+                        'severity': 'INFO',
                         'issue_type': 'BL_CODE_ELEMENT_COLOR_CONFLICT_RESOLVED_BY_NAME_RGB',
                         'rb_color_id': '',
                         'name': '',
@@ -1011,7 +1026,7 @@ def main() -> int:
         if best is not None:
             element_resolved_color[element_id] = best
             issues.append({
-                "severity": "WARN",
+                "severity": "INFO",
                 "issue_type": "BL_CODE_ELEMENT_COLOR_CONFLICT_RESOLVED",
                 "rb_color_id": "",
                 "name": "",
@@ -1062,7 +1077,7 @@ def main() -> int:
 
     if sentinel_rb_elements:
         issues.append({
-            "severity": "WARN",
+            "severity": "INFO",
             "issue_type": "RB_ELEMENTS_SENTINEL_COLOR_SKIPPED",
             "rb_color_id": "",
             "name": "",
@@ -1167,14 +1182,24 @@ def main() -> int:
             ldraw_id = s.ldraw_color_id
 
         if bl_id is None and not sentinel:
-            issues.append({
-                "severity": "WARN",
-                "issue_type": "BL_ID_MISSING",
-                "rb_color_id": rb_id,
-                "name": rb.name,
-                "details": "Sem bl_color_id (aceitável: pode não existir no BrickLink).",
-                "suggestions": "Se existir no BrickLink, fixa no seed.",
-            })
+            if rb_id in RB_COLOR_IDS_ALLOW_BL_NULL:
+                issues.append({
+                    "severity": "INFO",
+                    "issue_type": "BL_ID_MISSING_ALLOWED",
+                    "rb_color_id": rb_id,
+                    "name": rb.name,
+                    "details": "Sem bl_color_id (permitido por allowlist; manter NULL).",
+                    "suggestions": "Nenhuma ação necessária.",
+                })
+            else:
+                issues.append({
+                    "severity": "WARN",
+                    "issue_type": "BL_ID_MISSING",
+                    "rb_color_id": rb_id,
+                    "name": rb.name,
+                    "details": "Sem bl_color_id (aceitável: pode não existir no BrickLink).",
+                    "suggestions": "Se existir no BrickLink, fixa no seed.",
+                })
 
         out_rows.append({
             "name": rb.name,
@@ -1209,8 +1234,7 @@ def main() -> int:
     write_csv(Path(args.issues),
               ["severity", "issue_type", "rb_color_id", "name", "details", "suggestions"],
               issues)
-
-    if element_override_suggestions:
+    if element_override_suggestions and args.emit_element_override_suggestions:
         sug_path = Path(args.issues).with_name('element_overrides_suggested.csv')
         write_csv(sug_path, ['element_id','candidates','candidate_names','parts_count'], element_override_suggestions)
         print(f'✅ Wrote: {sug_path} (rows={len(element_override_suggestions)})')
@@ -1269,4 +1293,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-  
