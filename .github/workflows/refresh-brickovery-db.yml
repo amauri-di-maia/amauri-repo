@@ -1,0 +1,66 @@
+name: Refresh brickovery.db (store as normal Git file)
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_raw_url:
+        description: "RAW URL para o brickovery.db (ex: https://raw.githubusercontent.com/OWNER/REPO/BRANCH/path/brickovery.db)"
+        required: true
+      target_path:
+        description: "Caminho no teu repo onde guardar (ex: data/brickovery.db)"
+        required: true
+        default: "data/brickovery.db"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download DB from upstream
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "${{ inputs.target_path }}")"
+          curl -L --fail "${{ inputs.upstream_raw_url }}" -o "${{ inputs.target_path }}"
+
+      - name: Validate file looks like SQLite
+        run: |
+          set -euo pipefail
+          # "file" deve indicar SQLite 3.x database
+          file "${{ inputs.target_path }}"
+          # teste rápido ao header
+          head -c 16 "${{ inputs.target_path }}" | strings
+
+      - name: Show size and enforce GitHub 100MB limit
+        run: |
+          set -euo pipefail
+          bytes=$(stat -c%s "${{ inputs.target_path }}")
+          echo "Size bytes: $bytes"
+          if [ "$bytes" -gt 100000000 ]; then
+            echo "ERROR: >100MB. GitHub não aceita como ficheiro normal. Mantém em LFS ou usa Releases/Artifacts."
+            exit 1
+          fi
+
+      - name: Ensure not staged as LFS pointer (re-add clean)
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Remove do index (se existia como pointer LFS) e re-adiciona o binário real
+          git rm -f --cached "${{ inputs.target_path }}" || true
+          git add "${{ inputs.target_path }}"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Refresh brickovery.db (store as normal Git file)"
+          git push
