@@ -1,5 +1,5 @@
 {
-  "ts": 1773291455,
+  "ts": 1773377732,
   "phase": "done",
   "mode": "boid",
   "processed": 0,
@@ -7,5 +7,5 @@
   "rows_db": 106832,
   "errors": 0,
   "warnings": 2443,
-  "elapsed_sec": 41
+  "elapsed_sec": 47
 }
