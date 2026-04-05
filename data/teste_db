@@ -1,14 +1,14 @@
-teste_db spot-check | ts=1775278905
+teste_db spot-check | ts=1775366511
 db_path=data/brickovery.db
 picked_bl_part_id=10 picked_rows=10
-PASS | bl_part_id=973pb2937c01 bo_color_id=92 boid=755539-92 | 
-PASS | bl_part_id=43121c04 bo_color_id=66 boid=385475-66 | 
-PASS | bl_part_id=973px69c01 bo_color_id=38 boid=175751-38 | 
-PASS | bl_part_id=973pb6083c02 bo_color_id=92 boid=754720-92 | 
-PASS | bl_part_id=4162pb084 bo_color_id=38 boid=905126-38 | 
-PASS | bl_part_id=98138pb417 bo_color_id=64 boid=167103-64 | 
-PASS | bl_part_id=98223pb034 bo_color_id=44 boid=349560-44 | 
-PASS | bl_part_id=24246pb001 bo_color_id=117 boid=362977-117 | 
-PASS | bl_part_id=3626pb3335 bo_color_id=103 boid=603106-103 | 
-PASS | bl_part_id=973pb5104c01 bo_color_id=82 boid=1139081-82 | 
-summary_ok=10 summary_fail=0
+PASS | bl_part_id=36196c00pb004 bo_color_id=17 boid=824258-17 | 
+PASS | bl_part_id=3626pb1077 bo_color_id=82 boid=606147-82 | 
+FAIL | bl_part_id=41176stk01a bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
+PASS | bl_part_id=43145 bo_color_id=81 boid=667043-81 | 
+PASS | bl_part_id=4658 bo_color_id=82 boid=618573-82 | 
+PASS | bl_part_id=79998 bo_color_id=81 boid=134153-81 | 
+PASS | bl_part_id=5102c39 bo_color_id=64 boid=612279-64 | 
+PASS | bl_part_id=970c00pb0674 bo_color_id=85 boid=769718-85 | 
+PASS | bl_part_id=92092 bo_color_id=50 boid=720698-50 | 
+PASS | bl_part_id=973pb1748c01 bo_color_id=61 boid=863546-61 | 
+summary_ok=9 summary_fail=1
