@@ -1,5 +1,5 @@
 severity,issue_type,rb_color_id,name,details,suggestions
-WARN,API_SELFTEST_BRICKLINK_FAILED,,,BrickLink OAuth: FALHA ao chamar /items/part/3001/colors: Expecting value: line 1 column 1 (char 0),"Verificar credenciais OAuth, clock do runner e se o endpoint/type estão corretos."
+INFO,API_SELFTEST_BRICKLINK_OK,,,BrickLink OAuth OK (/items/part/3001/colors).,
 INFO,API_SELFTEST_REBRICKABLE_OK,,,Rebrickable OK (/lego/colors?page_size=1).,
 INFO,API_SELFTEST_BRICKOWL_OK,,,BrickOwl OK (/user/details + /catalog/color_list).,"Se catalog falhar, confirmar permissões da key BrickOwl."
 INFO,BL_CODE_ELEMENT_COLOR_CONFLICT_RESOLVED_BY_NAME_RGB,,,"Element 4107576 tinha múltiplos BL color_id [7, 11, 86]; resolvido para 86 por heurística name/RGB (rb_color_id=7).","Se quiseres fixar definitivamente, adiciona override no seed (ou regra interna por Element)."
