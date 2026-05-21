@@ -1,14 +1,14 @@
-teste_db spot-check | ts=1779260149
+teste_db spot-check | ts=1779346800
 db_path=data/brickovery.db
 picked_bl_part_id=10 picked_rows=10
-PASS | bl_part_id=5103 bo_color_id=43 boid=769159-43 | 
-PASS | bl_part_id=970c00pb0392 bo_color_id=38 boid=675631-38 | 
-PASS_UNCOLORED | bl_part_id=49265c01 bo_color_id=88 boid=620689 | lookup_color_id=0 target=88
-PASS | bl_part_id=6405 bo_color_id=93 boid=633161-93 | 
-PASS | bl_part_id=33487pb01 bo_color_id=50 boid=286352-50 | 
-PASS | bl_part_id=970c00pb1509 bo_color_id=43 boid=1263685-43 | 
-PASS | bl_part_id=18675pb11 bo_color_id=96 boid=113912-96 | 
-PASS | bl_part_id=98085c03 bo_color_id=79 boid=336045-79 | 
-PASS | bl_part_id=3626pb1243 bo_color_id=93 boid=160659-93 | 
-PASS | bl_part_id=973pb4498c01 bo_color_id=38 boid=539245-38 | 
-summary_ok=10 summary_fail=0
+PASS | bl_part_id=98138pb384 bo_color_id=97 boid=953369-97 | 
+PASS | bl_part_id=32171pb076 bo_color_id=127 boid=402988-127 | 
+PASS | bl_part_id=19729pb023 bo_color_id=70 boid=573740-70 | 
+PASS | bl_part_id=973pb4576c01 bo_color_id=41 boid=316399-41 | 
+PASS | bl_part_id=FTBpb156c01 bo_color_id=82 boid=817164-82 | 
+PASS | bl_part_id=973pb2497c01 bo_color_id=48 boid=323098-48 | 
+FAIL | bl_part_id=35216ac00pb007 bo_color_id=72 boid=188806-72 | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=188806-72
+PASS | bl_part_id=95319pb01 bo_color_id=57 boid=330911-57 | 
+PASS | bl_part_id=18675pb06 bo_color_id=38 boid=377065-38 | 
+PASS | bl_part_id=105143pb01 bo_color_id=82 boid=16364-82 | 
+summary_ok=9 summary_fail=1
