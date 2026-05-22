@@ -2364,7 +2364,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,93668,Sem bo_color_id (mapeamento BL->BO indis
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,97122,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,98109pb02,id_lookup devolveu 0 BOIDs para bl_item_no=98109pb02
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,98283,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,98367pb02,id_lookup devolveu 0 BOIDs para bl_item_no=98367pb02
+INFO,BRICKOWL_BOID_OK_UNCOLORED_UNIQUE,98367pb02|38,Aceite BOID base único sem cor explícita (color_id=0) (id_lookup:bl_item_no): 929790
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,99136,id_lookup devolveu 0 BOIDs para bl_item_no=99136
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,854011stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,854012stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -2454,4 +2454,4 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,x1220,Sem bo_color_id (mapeamento BL->BO indis
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,x214px1,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,x77a,id_lookup devolveu 0 BOIDs para bl_item_no=x77a
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,x77dc50,id_lookup devolveu 0 BOIDs para bl_item_no=x77dc50
-INFO,BRICKOWL_BOID_RESOLVE_DONE,,BOID resolve terminado. Updated_pairs=0/2438.
+INFO,BRICKOWL_BOID_RESOLVE_DONE,,BOID resolve terminado. Updated_pairs=1/2438.
