@@ -1,14 +1,14 @@
-teste_db spot-check | ts=1780643810
+teste_db spot-check | ts=1780727822
 db_path=data/brickovery.db
 picked_bl_part_id=10 picked_rows=10
-PASS | bl_part_id=973pb6291c01 bo_color_id=38 boid=503843-38 | 
-PASS | bl_part_id=973pb1458c01 bo_color_id=89 boid=328866-89 | 
-PASS | bl_part_id=4181 bo_color_id=92 boid=374808-92 | 
-PASS | bl_part_id=40925pb01 bo_color_id=61 boid=52842-61 | 
-FAIL | bl_part_id=5826stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
-PASS | bl_part_id=3626pb1427 bo_color_id=6 boid=398990-6 | 
-PASS | bl_part_id=970c00pb1850 bo_color_id=92 boid=981773-92 | 
-FAIL | bl_part_id=21356stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
-PASS | bl_part_id=29114 bo_color_id=92 boid=60559-92 | 
-PASS | bl_part_id=3069pb1018 bo_color_id=81 boid=802087-81 | 
+PASS | bl_part_id=31110pb137 bo_color_id=73 boid=972755-73 | 
+PASS | bl_part_id=970d07 bo_color_id=38 boid=176108-38 | 
+FAIL | bl_part_id=1658stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
+FAIL | bl_part_id=3680c01 bo_color_id=92 boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
+PASS | bl_part_id=4182px1 bo_color_id=81 boid=309466-81 | 
+PASS | bl_part_id=3626pb0645 bo_color_id=65 boid=321107-65 | 
+PASS | bl_part_id=5644 bo_color_id=120 boid=702818-120 | 
+PASS | bl_part_id=3437pb133 bo_color_id=43 boid=143403-43 | 
+PASS | bl_part_id=15440 bo_color_id=48 boid=304700-48 | 
+PASS | bl_part_id=970c00pb0266 bo_color_id=92 boid=868092-92 | 
 summary_ok=8 summary_fail=2
