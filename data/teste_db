@@ -1,14 +1,14 @@
-teste_db spot-check | ts=1780816373
+teste_db spot-check | ts=1780906843
 db_path=data/brickovery.db
 picked_bl_part_id=10 picked_rows=10
-PASS | bl_part_id=3070pb105 bo_color_id=81 boid=215744-81 | 
-PASS | bl_part_id=3626pb0560 bo_color_id=74 boid=557404-74 | 
-PASS | bl_part_id=FTGpb478c01 bo_color_id=74 boid=687430-74 | 
-PASS | bl_part_id=3001pb128 bo_color_id=44 boid=389627-44 | 
-PASS | bl_part_id=970c00pb1459 bo_color_id=38 boid=341538-38 | 
-PASS | bl_part_id=970c09pb04 bo_color_id=46 boid=750841-46 | 
-PASS | bl_part_id=75533pb04 bo_color_id=39 boid=574316-39 | 
-PASS | bl_part_id=98386pb01 bo_color_id=54 boid=643781-54 | 
-PASS | bl_part_id=3069pb1278 bo_color_id=39 boid=264292-39 | 
-FAIL | bl_part_id=41074stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
-summary_ok=9 summary_fail=1
+PASS | bl_part_id=973pb4306c01 bo_color_id=58 boid=1063739-58 | 
+PASS_UNCOLORED | bl_part_id=65513pb02 bo_color_id=85 boid=1114284 | lookup_color_id=0 target=85
+PASS | bl_part_id=970c85pb26 bo_color_id=117 boid=918387-117 | 
+PASS | bl_part_id=973pb1109c01 bo_color_id=85 boid=297762-85 | 
+FAIL | bl_part_id=4840stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
+PASS | bl_part_id=40925pb09 bo_color_id=92 boid=484865-92 | 
+PASS | bl_part_id=85834pb08 bo_color_id=117 boid=664289-117 | 
+FAIL | bl_part_id=4194stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
+PASS | bl_part_id=6891c01pb01 bo_color_id=9 boid=264455-9 | 
+PASS | bl_part_id=6246 bo_color_id=53 boid=263512-53 | 
+summary_ok=8 summary_fail=2
