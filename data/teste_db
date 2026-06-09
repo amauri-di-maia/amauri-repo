@@ -1,14 +1,14 @@
-teste_db spot-check | ts=1780906843
+teste_db spot-check | ts=1780988249
 db_path=data/brickovery.db
 picked_bl_part_id=10 picked_rows=10
-PASS | bl_part_id=973pb4306c01 bo_color_id=58 boid=1063739-58 | 
-PASS_UNCOLORED | bl_part_id=65513pb02 bo_color_id=85 boid=1114284 | lookup_color_id=0 target=85
-PASS | bl_part_id=970c85pb26 bo_color_id=117 boid=918387-117 | 
-PASS | bl_part_id=973pb1109c01 bo_color_id=85 boid=297762-85 | 
-FAIL | bl_part_id=4840stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
-PASS | bl_part_id=40925pb09 bo_color_id=92 boid=484865-92 | 
-PASS | bl_part_id=85834pb08 bo_color_id=117 boid=664289-117 | 
-FAIL | bl_part_id=4194stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
-PASS | bl_part_id=6891c01pb01 bo_color_id=9 boid=264455-9 | 
-PASS | bl_part_id=6246 bo_color_id=53 boid=263512-53 | 
-summary_ok=8 summary_fail=2
+PASS | bl_part_id=67678 bo_color_id=64 boid=902614-64 | 
+PASS | bl_part_id=30366px1 bo_color_id=97 boid=661583-97 | 
+PASS | bl_part_id=62691 bo_color_id=122 boid=72266-122 | 
+PASS | bl_part_id=3069pb0630 bo_color_id=120 boid=172453-120 | 
+PASS | bl_part_id=973pb1741c01 bo_color_id=92 boid=918257-92 | 
+FAIL | bl_part_id=41066stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
+PASS | bl_part_id=98138pb072 bo_color_id=50 boid=860054-50 | 
+PASS | bl_part_id=47310 bo_color_id=38 boid=100180-38 | 
+PASS | bl_part_id=973pb0527c01 bo_color_id=81 boid=923331-81 | 
+PASS | bl_part_id=32171pb020 bo_color_id=58 boid=751056-58 | 
+summary_ok=9 summary_fail=1
