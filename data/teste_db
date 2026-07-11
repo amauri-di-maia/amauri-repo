@@ -1,14 +1,14 @@
-teste_db spot-check | ts=1783666429
+teste_db spot-check | ts=1783748906
 db_path=data/brickovery.db
 picked_bl_part_id=10 picked_rows=10
-PASS | bl_part_id=2463 bo_color_id=38 boid=872318-38 | 
-PASS | bl_part_id=2302pb08 bo_color_id=93 boid=726043-93 | 
-PASS | bl_part_id=47847 bo_color_id=50 boid=972778-50 | 
-PASS | bl_part_id=4066pb058 bo_color_id=93 boid=694390-93 | 
-PASS | bl_part_id=6636pb228 bo_color_id=38 boid=106878-38 | 
-PASS | bl_part_id=3666pb02 bo_color_id=50 boid=890160-50 | 
-PASS | bl_part_id=3626pb3539 bo_color_id=217 boid=889504-217 | 
-PASS | bl_part_id=11302pb01 bo_color_id=98 boid=83492-98 | 
-PASS | bl_part_id=3626pb1030 bo_color_id=93 boid=623156-93 | 
-PASS | bl_part_id=3626pb3292 bo_color_id=213 boid=199474-213 | 
-summary_ok=10 summary_fail=0
+PASS | bl_part_id=3068pb0116 bo_color_id=38 boid=186626-38 | 
+PASS | bl_part_id=3626pb2156 bo_color_id=65 boid=898749-65 | 
+PASS | bl_part_id=973pb2262c01 bo_color_id=92 boid=454869-92 | 
+FAIL | bl_part_id=40305stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
+PASS | bl_part_id=970c00pb0257 bo_color_id=38 boid=70999-38 | 
+PASS | bl_part_id=973pb4152c01 bo_color_id=120 boid=349930-120 | 
+PASS | bl_part_id=973pb1552c01 bo_color_id=92 boid=341897-92 | 
+PASS | bl_part_id=970c00pb0831 bo_color_id=48 boid=341234-48 | 
+PASS | bl_part_id=FTBpb005c01 bo_color_id=65 boid=641850-65 | 
+PASS | bl_part_id=3626pb2927 bo_color_id=65 boid=499008-65 | 
+summary_ok=9 summary_fail=1
