@@ -1,5 +1,5 @@
 severity,issue_type,key,details
-INFO,BRICKOWL_BOID_RESOLVE_START,,"A resolver BOID para 2436 pares (part,bo_color)."
+INFO,BRICKOWL_BOID_RESOLVE_START,,"A resolver BOID para 2435 pares (part,bo_color)."
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,787c01,id_lookup devolveu 0 BOIDs para bl_item_no=787c01
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,787c01,id_lookup devolveu 0 BOIDs para bl_item_no=787c01
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,787c02,id_lookup devolveu 0 BOIDs para bl_item_no=787c02
@@ -11,7 +11,6 @@ WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb2174c01,id_lookup devolveu 0 BOIDs para bl_it
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb2326c01,id_lookup devolveu 0 BOIDs para bl_item_no=973pb2326c01
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb3035c01,id_lookup devolveu 0 BOIDs para bl_item_no=973pb3035c01
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb4531,id_lookup devolveu 0 BOIDs para bl_item_no=973pb4531
-INFO,BRICKOWL_BOID_OK_UNCOLORED_UNIQUE,973pb5732c01|93,Aceite BOID base único sem cor explícita (color_id=0) (id_lookup:bl_item_no): 652335
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb6183c01,id_lookup devolveu 0 BOIDs para bl_item_no=973pb6183c01
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb6184c01,id_lookup devolveu 0 BOIDs para bl_item_no=973pb6184c01
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb6185c01,id_lookup devolveu 0 BOIDs para bl_item_no=973pb6185c01
@@ -2452,4 +2451,4 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,x1220,Sem bo_color_id (mapeamento BL->BO indis
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,x214px1,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,x77a,id_lookup devolveu 0 BOIDs para bl_item_no=x77a
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,x77dc50,id_lookup devolveu 0 BOIDs para bl_item_no=x77dc50
-INFO,BRICKOWL_BOID_RESOLVE_DONE,,BOID resolve terminado. Updated_pairs=1/2436.
+INFO,BRICKOWL_BOID_RESOLVE_DONE,,BOID resolve terminado. Updated_pairs=0/2435.
