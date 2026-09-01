@@ -1,14 +1,14 @@
-teste_db spot-check | ts=1788169196
+teste_db spot-check | ts=1788251749
 db_path=data/brickovery.db
 picked_bl_part_id=10 picked_rows=10
-PASS | bl_part_id=973pb1281c01 bo_color_id=82 boid=602537-82 | 
-PASS | bl_part_id=87960c01pb01 bo_color_id=43 boid=261441-43 | 
-PASS | bl_part_id=194cx2 bo_color_id=93 boid=311522-93 | 
-PASS | bl_part_id=67095pb071 bo_color_id=92 boid=928713-92 | 
-FAIL | bl_part_id=4708stk02 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
-PASS | bl_part_id=80431 bo_color_id=20 boid=565288-20 | 
-PASS | bl_part_id=6115pb02 bo_color_id=81 boid=918380-81 | 
-PASS | bl_part_id=6836 bo_color_id=5 boid=265577-5 | 
-PASS | bl_part_id=15554pb03 bo_color_id=43 boid=701690-43 | 
-PASS | bl_part_id=65676pb014 bo_color_id=97 boid=88927-97 | 
-summary_ok=9 summary_fail=1
+PASS | bl_part_id=10113pb04 bo_color_id=92 boid=737946-92 | 
+FAIL | bl_part_id=30179c03 bo_color_id=81 boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
+PASS | bl_part_id=7353 bo_color_id=43 boid=1049965-43 | 
+PASS | bl_part_id=973pb4427c01 bo_color_id=48 boid=1039302-48 | 
+PASS | bl_part_id=14769pb162 bo_color_id=73 boid=654475-73 | 
+PASS | bl_part_id=973pb1848c01 bo_color_id=39 boid=100723-39 | 
+PASS | bl_part_id=76923 bo_color_id=44 boid=1247600-44 | 
+FAIL | bl_part_id=41333stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
+FAIL | bl_part_id=41392stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 400 Client Error: Bad Request for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
+PASS | bl_part_id=54263 bo_color_id=119 boid=331583-119 | 
+summary_ok=7 summary_fail=3
