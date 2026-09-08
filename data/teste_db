@@ -1,14 +1,14 @@
-teste_db spot-check | ts=1788768848
+teste_db spot-check | ts=1788854542
 db_path=data/brickovery.db
 picked_bl_part_id=10 picked_rows=10
-PASS | bl_part_id=970c00pb1429 bo_color_id=74 boid=138772-74 | 
-PASS | bl_part_id=65035 bo_color_id=38 boid=393864-38 | 
-PASS | bl_part_id=970c00pb1054 bo_color_id=50 boid=686928-50 | 
-PASS | bl_part_id=99241pb02 bo_color_id=81 boid=64228-81 | 
-PASS | bl_part_id=18857pb03 bo_color_id=92 boid=700797-92 | 
-PASS | bl_part_id=14769pb264 bo_color_id=92 boid=640122-92 | 
-PASS | bl_part_id=98281pb018 bo_color_id=92 boid=570456-92 | 
-PASS | bl_part_id=3622pb150 bo_color_id=48 boid=1293952-48 | 
-PASS | bl_part_id=3004pb144L bo_color_id=93 boid=66437-93 | 
-PASS | bl_part_id=970c00pb0127 bo_color_id=92 boid=156048-92 | 
+PASS | bl_part_id=67440 bo_color_id=62 boid=691396-62 | 
+PASS | bl_part_id=2358pb04 bo_color_id=66 boid=602093-66 | 
+PASS | bl_part_id=12607pb11 bo_color_id=41 boid=148118-41 | 
+PASS | bl_part_id=FTMpb080c01 bo_color_id=217 boid=1092700-217 | 
+PASS | bl_part_id=3626pb0442 bo_color_id=65 boid=45076-65 | 
+PASS | bl_part_id=970c00pb1855 bo_color_id=43 boid=1003273-43 | 
+PASS | bl_part_id=3626pb0804 bo_color_id=65 boid=465009-65 | 
+PASS | bl_part_id=973pb2488c01 bo_color_id=92 boid=926618-92 | 
+PASS | bl_part_id=3626pb0506 bo_color_id=93 boid=804206-93 | 
+PASS | bl_part_id=970c00pb1615 bo_color_id=81 boid=561336-81 | 
 summary_ok=10 summary_fail=0
