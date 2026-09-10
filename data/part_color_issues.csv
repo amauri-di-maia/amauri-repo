@@ -1,9 +1,9 @@
 severity,issue_type,key,details
 INFO,BRICKOWL_BOID_RESOLVE_START,,"A resolver BOID para 2435 pares (part,bo_color)."
-WARN,BRICKOWL_ID_LOOKUP_FAILED,787c01,"id_lookup falhou: HTTPSConnectionPool(host='api.brickowl.com', port=443): Max retries exceeded with url: /v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=787c01&type=Part&id_type=bl_item_no (Caused by NewConnectionError(""HTTPSConnection(host='api.brickowl.com', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable""))"
-WARN,BRICKOWL_ID_LOOKUP_FAILED,787c01,"id_lookup falhou: HTTPSConnectionPool(host='api.brickowl.com', port=443): Max retries exceeded with url: /v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=787c01&type=Part&id_type=bl_item_no (Caused by NewConnectionError(""HTTPSConnection(host='api.brickowl.com', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable""))"
-WARN,BRICKOWL_ID_LOOKUP_FAILED,787c02,"id_lookup falhou: HTTPSConnectionPool(host='api.brickowl.com', port=443): Max retries exceeded with url: /v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=787c02&type=Part&id_type=bl_item_no (Caused by NewConnectionError(""HTTPSConnection(host='api.brickowl.com', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable""))"
-WARN,BRICKOWL_ID_LOOKUP_FAILED,970c00pb0473,"id_lookup falhou: HTTPSConnectionPool(host='api.brickowl.com', port=443): Max retries exceeded with url: /v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=970c00pb0473&type=Part&id_type=bl_item_no (Caused by NewConnectionError(""HTTPSConnection(host='api.brickowl.com', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable""))"
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,787c01,id_lookup devolveu 0 BOIDs para bl_item_no=787c01
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,787c01,id_lookup devolveu 0 BOIDs para bl_item_no=787c01
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,787c02,id_lookup devolveu 0 BOIDs para bl_item_no=787c02
+WARN,BRICKOWL_ID_LOOKUP_EMPTY,970c00pb0473,id_lookup devolveu 0 BOIDs para bl_item_no=970c00pb0473
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb1520,id_lookup devolveu 0 BOIDs para bl_item_no=973pb1520
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb1547,id_lookup devolveu 0 BOIDs para bl_item_no=973pb1547
 WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb1558,id_lookup devolveu 0 BOIDs para bl_item_no=973pb1558
