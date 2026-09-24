@@ -1,50 +1,48 @@
 severity,issue_type,key,details
-INFO,BRICKOWL_BOID_RESOLVE_START,,"A resolver BOID para 2435 pares (part,bo_color)."
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,787c01,id_lookup devolveu 0 BOIDs para bl_item_no=787c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,787c01,id_lookup devolveu 0 BOIDs para bl_item_no=787c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,787c02,id_lookup devolveu 0 BOIDs para bl_item_no=787c02
-INFO,BRICKOWL_BOID_OK_UNCOLORED_UNIQUE,970c00pb0473|38,Aceite BOID base único sem cor explícita (color_id=0) (id_lookup:bl_item_no): 1073753
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb1520,id_lookup devolveu 0 BOIDs para bl_item_no=973pb1520
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb1547,id_lookup devolveu 0 BOIDs para bl_item_no=973pb1547
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb1558,id_lookup devolveu 0 BOIDs para bl_item_no=973pb1558
-INFO,BRICKOWL_BOID_OK_UNCOLORED_UNIQUE,973pb2174c01|38,Aceite BOID base único sem cor explícita (color_id=0) (id_lookup:bl_item_no): 5735
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb2326c01,id_lookup devolveu 0 BOIDs para bl_item_no=973pb2326c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb3035c01,id_lookup devolveu 0 BOIDs para bl_item_no=973pb3035c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb4531,id_lookup devolveu 0 BOIDs para bl_item_no=973pb4531
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb6183c01,id_lookup devolveu 0 BOIDs para bl_item_no=973pb6183c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb6184c01,id_lookup devolveu 0 BOIDs para bl_item_no=973pb6184c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,973pb6185c01,id_lookup devolveu 0 BOIDs para bl_item_no=973pb6185c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,981pb362,id_lookup devolveu 0 BOIDs para bl_item_no=981pb362
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,982pb362,id_lookup devolveu 0 BOIDs para bl_item_no=982pb362
+INFO,BRICKOWL_BOID_RESOLVE_START,,"A resolver BOID para 2433 pares (part,bo_color)."
+WARN,BRICKOWL_ID_LOOKUP_FAILED,787c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,787c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,787c02,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb1520,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb1547,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb1558,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb2326c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb3035c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb4531,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb6183c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb6184c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb6185c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,981pb362,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,982pb362,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6033stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6080,id_lookup devolveu 0 BOIDs para bl_item_no=6080
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6080,id_lookup devolveu 0 BOIDs para bl_item_no=6080
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6080,id_lookup devolveu 0 BOIDs para bl_item_no=6080
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6080,id_lookup devolveu 0 BOIDs para bl_item_no=6080
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6111stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6111stk02,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6111stk03a,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6111stk03b,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6164stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6180pb135,id_lookup devolveu 0 BOIDs para bl_item_no=6180pb135
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6191pb042,id_lookup devolveu 0 BOIDs para bl_item_no=6191pb042
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6180pb135,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6191pb042,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6207stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6208stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6210stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6211stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6230stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6235c01,id_lookup devolveu 0 BOIDs para bl_item_no=6235c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6235c01,id_lookup devolveu 0 BOIDs para bl_item_no=6235c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6235c02,id_lookup devolveu 0 BOIDs para bl_item_no=6235c02
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6235c02,id_lookup devolveu 0 BOIDs para bl_item_no=6235c02
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6236c01,id_lookup devolveu 0 BOIDs para bl_item_no=6236c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6236c01,id_lookup devolveu 0 BOIDs para bl_item_no=6236c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6236c02,id_lookup devolveu 0 BOIDs para bl_item_no=6236c02
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6236c02,id_lookup devolveu 0 BOIDs para bl_item_no=6236c02
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6235c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6235c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6235c02,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6235c02,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6236c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6236c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6236c02,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6236c02,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6242stk01a,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6242stk01b,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6249c01,id_lookup devolveu 0 BOIDs para bl_item_no=6249c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6249c02,id_lookup devolveu 0 BOIDs para bl_item_no=6249c02
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6249c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6249c02,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6334stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6335stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6336stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -131,7 +129,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,6773stk01,Sem bo_color_id (mapeamento BL->BO i
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6774stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6775stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6776stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,6828,id_lookup devolveu 0 BOIDs para bl_item_no=6828
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6828,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6857stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6860stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6863stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -171,7 +169,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,7066stk01,Sem bo_color_id (mapeamento BL->BO i
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7066stk02,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7067stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7067stk02,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,7071pb21,id_lookup devolveu 0 BOIDs para bl_item_no=7071pb21
+WARN,BRICKOWL_ID_LOOKUP_FAILED,7071pb21,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7094stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7139pls01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7148stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -221,14 +219,14 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,7327stk01,Sem bo_color_id (mapeamento BL->BO i
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7327stk02,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7331ppr01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7344stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,7353a,id_lookup devolveu 0 BOIDs para bl_item_no=7353a
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,7353b,id_lookup devolveu 0 BOIDs para bl_item_no=7353b
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,7353c,id_lookup devolveu 0 BOIDs para bl_item_no=7353c
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,7353d,id_lookup devolveu 0 BOIDs para bl_item_no=7353d
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,7353e,id_lookup devolveu 0 BOIDs para bl_item_no=7353e
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,7353f,id_lookup devolveu 0 BOIDs para bl_item_no=7353f
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,7353g,id_lookup devolveu 0 BOIDs para bl_item_no=7353g
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,7353h,id_lookup devolveu 0 BOIDs para bl_item_no=7353h
+WARN,BRICKOWL_ID_LOOKUP_FAILED,7353a,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,7353b,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,7353c,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,7353d,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,7353e,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,7353f,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,7353g,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,7353h,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7467stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7468stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,7468stk02,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -1066,7 +1064,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,60290stk01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60291stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60292stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60295stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,60297pb01,id_lookup devolveu 0 BOIDs para bl_item_no=60297pb01
+WARN,BRICKOWL_ID_LOOKUP_FAILED,60297pb01,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60305stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60313stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60314stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -1107,8 +1105,8 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,60373stk01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60374stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60378stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60379stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,60380stk01,id_lookup devolveu 0 BOIDs para bl_item_no=60380stk01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,60380stk02,id_lookup devolveu 0 BOIDs para bl_item_no=60380stk02
+WARN,BRICKOWL_ID_LOOKUP_FAILED,60380stk01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,60380stk02,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60384stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60386stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60387stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -1156,18 +1154,18 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,60471stk01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60472stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60473stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,60499stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,60581pb271,id_lookup devolveu 0 BOIDs para bl_item_no=60581pb271
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,60670,id_lookup devolveu 0 BOIDs para bl_item_no=60670
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,61209,id_lookup devolveu 0 BOIDs para bl_item_no=61209
+WARN,BRICKOWL_ID_LOOKUP_FAILED,60581pb271,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,60670,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,61209,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,61766,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,61767,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,61768,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,61769,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,61862,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,62605pb01c01,id_lookup devolveu 0 BOIDs para bl_item_no=62605pb01c01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,62681c01pb01,id_lookup devolveu 0 BOIDs para bl_item_no=62681c01pb01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,65081,id_lookup devolveu 0 BOIDs para bl_item_no=65081
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,66237,id_lookup devolveu 0 BOIDs para bl_item_no=66237
+WARN,BRICKOWL_ID_LOOKUP_FAILED,62605pb01c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,62681c01pb01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,65081,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,66237,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,69609,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,69846,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,69864,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -1199,7 +1197,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,70134stk01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70134stk02,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70135stk01a,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70141stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,70142stk01a,id_lookup devolveu 0 BOIDs para bl_item_no=70142stk01a
+WARN,BRICKOWL_ID_LOOKUP_FAILED,70142stk01a,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70143stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70144stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70145stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -1396,8 +1394,8 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,70838stk01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70839stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70840stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70849stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,70887,id_lookup devolveu 0 BOIDs para bl_item_no=70887
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,70888,id_lookup devolveu 0 BOIDs para bl_item_no=70888
+WARN,BRICKOWL_ID_LOOKUP_FAILED,70887,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,70888,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70900stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70902stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,70910stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -1513,7 +1511,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,71790stk01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71791stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71792stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71793stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,71794stk01,id_lookup devolveu 0 BOIDs para bl_item_no=71794stk01
+WARN,BRICKOWL_ID_LOOKUP_FAILED,71794stk01,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71795stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71796stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71797stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -1528,7 +1526,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,71813stk01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71814stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71816stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71818stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,71819stk01,id_lookup devolveu 0 BOIDs para bl_item_no=71819stk01
+WARN,BRICKOWL_ID_LOOKUP_FAILED,71819stk01,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71820stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71821stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71822pls01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -1550,7 +1548,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,71843pls01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71843stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71844stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71845stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,71846stk01,id_lookup devolveu 0 BOIDs para bl_item_no=71846stk01
+WARN,BRICKOWL_ID_LOOKUP_FAILED,71846stk01,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71847stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71848stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,71858stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -1580,7 +1578,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,72044stk02,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,72045stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,72046stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,72571,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,73037c02,id_lookup devolveu 0 BOIDs para bl_item_no=73037c02
+WARN,BRICKOWL_ID_LOOKUP_FAILED,73037c02,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75001stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75002stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75003stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -1768,7 +1766,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,75416stk01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75417stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75419stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75428stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,75429stk01,id_lookup devolveu 0 BOIDs para bl_item_no=75429stk01
+WARN,BRICKOWL_ID_LOOKUP_FAILED,75429stk01,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75431stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75432stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75433stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -1788,7 +1786,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,75636stk01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75637stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75637stk02,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75638stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,75639stk01,id_lookup devolveu 0 BOIDs para bl_item_no=75639stk01
+WARN,BRICKOWL_ID_LOOKUP_FAILED,75639stk01,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75640stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75640stk02,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,75681pls01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -2260,7 +2258,7 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,77943stk01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,77944stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,78443,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,78444,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,78532,id_lookup devolveu 0 BOIDs para bl_item_no=78532
+WARN,BRICKOWL_ID_LOOKUP_FAILED,78532,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,78666,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,79003stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,79006stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -2324,9 +2322,9 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,80049stk01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,80050stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,80051stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,80053stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,80054stk01,id_lookup devolveu 0 BOIDs para bl_item_no=80054stk01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,80054stk02,id_lookup devolveu 0 BOIDs para bl_item_no=80054stk02
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,80054stk03,id_lookup devolveu 0 BOIDs para bl_item_no=80054stk03
+WARN,BRICKOWL_ID_LOOKUP_FAILED,80054stk01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,80054stk02,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,80054stk03,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,80055stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,80055stk02,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,80056pls01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -2345,24 +2343,24 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,80111pls01,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,80111stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,80113stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,80116stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,80516c02,id_lookup devolveu 0 BOIDs para bl_item_no=80516c02
+WARN,BRICKOWL_ID_LOOKUP_FAILED,80516c02,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,81000pls01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,81000pls02,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,82253,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,82254,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,87079pb0220,id_lookup devolveu 0 BOIDs para bl_item_no=87079pb0220
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,87079pb0311,id_lookup devolveu 0 BOIDs para bl_item_no=87079pb0311
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,87079pb1366,id_lookup devolveu 0 BOIDs para bl_item_no=87079pb1366
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,87079pb1430,id_lookup devolveu 0 BOIDs para bl_item_no=87079pb1430
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,87561pb01,id_lookup devolveu 0 BOIDs para bl_item_no=87561pb01
+WARN,BRICKOWL_ID_LOOKUP_FAILED,87079pb0220,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,87079pb0311,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,87079pb1366,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,87079pb1430,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,87561pb01,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,88077,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,93220pb03,id_lookup devolveu 0 BOIDs para bl_item_no=93220pb03
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,93553pb01,id_lookup devolveu 0 BOIDs para bl_item_no=93553pb01
+WARN,BRICKOWL_ID_LOOKUP_FAILED,93220pb03,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,93553pb01,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,93668,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,97122,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,98109pb02,id_lookup devolveu 0 BOIDs para bl_item_no=98109pb02
+WARN,BRICKOWL_ID_LOOKUP_FAILED,98109pb02,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,98283,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,99136,id_lookup devolveu 0 BOIDs para bl_item_no=99136
+WARN,BRICKOWL_ID_LOOKUP_FAILED,99136,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,854011stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,854012stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,854015stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -2399,21 +2397,21 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,6199540,Sem bo_color_id (mapeamento BL->BO ind
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6199600,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6199603,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,B697stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,bb1309,id_lookup devolveu 0 BOIDs para bl_item_no=bb1309
+WARN,BRICKOWL_ID_LOOKUP_FAILED,bb1309,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,belvskirt06,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,blankie03pb09,id_lookup devolveu 0 BOIDs para bl_item_no=blankie03pb09
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,blankie03pb10,id_lookup devolveu 0 BOIDs para bl_item_no=blankie03pb10
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,blankie03pb11,id_lookup devolveu 0 BOIDs para bl_item_no=blankie03pb11
+WARN,BRICKOWL_ID_LOOKUP_FAILED,blankie03pb09,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,blankie03pb10,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,blankie03pb11,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,clikits076pb07,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,clikits076pb09,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,clikits130pb03,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,clikits130pb05,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,clikits290pb01,id_lookup devolveu 0 BOIDs para bl_item_no=clikits290pb01
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,duphippo,id_lookup devolveu 0 BOIDs para bl_item_no=duphippo
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,duplamb02,id_lookup devolveu 0 BOIDs para bl_item_no=duplamb02
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,duptowel01pb04,id_lookup devolveu 0 BOIDs para bl_item_no=duptowel01pb04
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,duptowel01pb05,id_lookup devolveu 0 BOIDs para bl_item_no=duptowel01pb05
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,FTGpb172c01,id_lookup devolveu 0 BOIDs para bl_item_no=FTGpb172c01
+WARN,BRICKOWL_ID_LOOKUP_FAILED,clikits290pb01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,duphippo,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,duplamb02,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,duptowel01pb04,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,duptowel01pb05,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,FTGpb172c01,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,LIT2009stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,multipls03,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,multipls04,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
@@ -2449,6 +2447,6 @@ WARN,BRICKOWL_BO_COLOR_ID_MISSING,multistk22,Sem bo_color_id (mapeamento BL->BO 
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,multistk24,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,x1220,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,x214px1,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,x77a,id_lookup devolveu 0 BOIDs para bl_item_no=x77a
-WARN,BRICKOWL_ID_LOOKUP_EMPTY,x77dc50,id_lookup devolveu 0 BOIDs para bl_item_no=x77dc50
-INFO,BRICKOWL_BOID_RESOLVE_DONE,,BOID resolve terminado. Updated_pairs=2/2435.
+WARN,BRICKOWL_ID_LOOKUP_FAILED,x77a,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,x77dc50,id_lookup falhou: BrickOwl request failed
+INFO,BRICKOWL_BOID_RESOLVE_DONE,,BOID resolve terminado. Updated_pairs=0/2433.
