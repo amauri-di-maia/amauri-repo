@@ -1,14 +1,14 @@
-teste_db spot-check | ts=1793876983
+teste_db spot-check | ts=1793963375
 db_path=data/brickovery.db
 picked_bl_part_id=10 picked_rows=10
-FAIL | bl_part_id=3626pb2289 bo_color_id=89 boid=136229-89 | exception=RuntimeError: BrickOwl request failed
-FAIL | bl_part_id=87997pb04 bo_color_id=92 boid=259833 | exception=RuntimeError: BrickOwl request failed
-FAIL | bl_part_id=3069pb0730 bo_color_id=89 boid=635576-89 | exception=RuntimeError: BrickOwl request failed
-FAIL | bl_part_id=11203pb131 bo_color_id=92 boid=787489-92 | exception=RuntimeError: BrickOwl request failed
-FAIL | bl_part_id=3626pb3564 bo_color_id=81 boid=861870-81 | exception=RuntimeError: BrickOwl request failed
-FAIL | bl_part_id=35961 bo_color_id=80 boid=885793-80 | exception=RuntimeError: BrickOwl request failed
-FAIL | bl_part_id=3626pb3009 bo_color_id=65 boid=93795-65 | exception=RuntimeError: BrickOwl request failed
-FAIL | bl_part_id=102525pb01 bo_color_id=65 boid=579389-65 | exception=RuntimeError: BrickOwl request failed
-FAIL | bl_part_id=69729pb034 bo_color_id=92 boid=183711-92 | exception=RuntimeError: BrickOwl request failed
-FAIL | bl_part_id=970c69pb20 bo_color_id=89 boid=1011108-89 | exception=RuntimeError: BrickOwl request failed
+FAIL | bl_part_id=18591 bo_color_id=81 boid=369697-81 | exception=RuntimeError: BrickOwl request failed
+FAIL | bl_part_id=3626pb0490 bo_color_id=65 boid=775608-65 | exception=RuntimeError: BrickOwl request failed
+FAIL | bl_part_id=47855 bo_color_id=50 boid=230709-50 | exception=RuntimeError: BrickOwl request failed
+FAIL | bl_part_id=973pb2471c01 bo_color_id=79 boid=961989-79 | exception=RuntimeError: BrickOwl request failed
+FAIL | bl_part_id=51547pb12 bo_color_id=56 boid=58028-56 | exception=RuntimeError: BrickOwl request failed
+FAIL | bl_part_id=24150pb03 bo_color_id=92 boid=932202-92 | exception=RuntimeError: BrickOwl request failed
+FAIL | bl_part_id=970c00pb0363 bo_color_id=38 boid=238942-38 | exception=RuntimeError: BrickOwl request failed
+FAIL | bl_part_id=42509pb08 bo_color_id=97 boid=513882-97 | exception=RuntimeError: BrickOwl request failed
+FAIL | bl_part_id=973pb5256c01 bo_color_id=73 boid=127603-73 | exception=RuntimeError: BrickOwl request failed
+FAIL | bl_part_id=44375bpb12 bo_color_id=48 boid=11187-48 | exception=RuntimeError: BrickOwl request failed
 summary_ok=0 summary_fail=10
