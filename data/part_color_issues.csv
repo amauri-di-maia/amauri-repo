@@ -6,31 +6,31 @@ WARN,BRICKOWL_ID_LOOKUP_FAILED,787c02,id_lookup falhou: 403 Client Error: Forbid
 WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb1520,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=973pb1520&type=Part&id_type=bl_item_no
 WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb1547,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=973pb1547&type=Part&id_type=bl_item_no
 WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb1558,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=973pb1558&type=Part&id_type=bl_item_no
-WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb3035c01,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=973pb3035c01&type=Part&id_type=bl_item_no
-WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb4531,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=973pb4531&type=Part&id_type=bl_item_no
-WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb6183c01,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=973pb6183c01&type=Part&id_type=bl_item_no
-WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb6184c01,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=973pb6184c01&type=Part&id_type=bl_item_no
-WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb6185c01,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=973pb6185c01&type=Part&id_type=bl_item_no
-WARN,BRICKOWL_ID_LOOKUP_FAILED,981pb362,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=981pb362&type=Part&id_type=bl_item_no
-WARN,BRICKOWL_ID_LOOKUP_FAILED,982pb362,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=982pb362&type=Part&id_type=bl_item_no
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb3035c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb4531,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb6183c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb6184c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,973pb6185c01,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,981pb362,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,982pb362,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6033stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=6080&type=Part&id_type=bl_item_no
-WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=6080&type=Part&id_type=bl_item_no
-WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=6080&type=Part&id_type=bl_item_no
-WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=6080&type=Part&id_type=bl_item_no
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6080,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6111stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6111stk02,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6111stk03a,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6111stk03b,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6164stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_FAILED,6180pb135,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=6180pb135&type=Part&id_type=bl_item_no
-WARN,BRICKOWL_ID_LOOKUP_FAILED,6191pb042,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=6191pb042&type=Part&id_type=bl_item_no
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6180pb135,id_lookup falhou: BrickOwl request failed
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6191pb042,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6207stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6208stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6210stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6211stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
 WARN,BRICKOWL_BO_COLOR_ID_MISSING,6230stk01,Sem bo_color_id (mapeamento BL->BO indisponível e DB não tem valor).
-WARN,BRICKOWL_ID_LOOKUP_FAILED,6235c01,id_lookup falhou: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/id_lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&id=6235c01&type=Part&id_type=bl_item_no
+WARN,BRICKOWL_ID_LOOKUP_FAILED,6235c01,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_ID_LOOKUP_FAILED,6235c01,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_ID_LOOKUP_FAILED,6235c02,id_lookup falhou: BrickOwl request failed
 WARN,BRICKOWL_ID_LOOKUP_FAILED,6235c02,id_lookup falhou: BrickOwl request failed
