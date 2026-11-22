@@ -1,14 +1,14 @@
-teste_db spot-check | ts=1795259306
+teste_db spot-check | ts=1795346781
 db_path=data/brickovery.db
 picked_bl_part_id=10 picked_rows=10
-FAIL | bl_part_id=973p90new2c11 bo_color_id=48 boid=1258041-48 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=1258041-48
-FAIL | bl_part_id=98138pb018 bo_color_id=92 boid=295837-92 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=295837-92
-FAIL | bl_part_id=11344pb008 bo_color_id=47 boid=838109-47 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=838109-47
-FAIL | bl_part_id=41839stk01 bo_color_id=None boid=no_bo_id | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
-FAIL | bl_part_id=14014 bo_color_id=74 boid=288096-74 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=288096-74
-FAIL | bl_part_id=3626pb1060 bo_color_id=74 boid=444085-74 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=444085-74
-FAIL | bl_part_id=973pb3241c01 bo_color_id=17 boid=535885-17 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=535885-17
-FAIL | bl_part_id=973pb5227c01 bo_color_id=81 boid=754987-81 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=754987-81
-FAIL | bl_part_id=95351 bo_color_id=61 boid=623586-61 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=623586-61
-FAIL | bl_part_id=98225pb002 bo_color_id=45 boid=914433-45 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=914433-45
+FAIL | bl_part_id=2598pb01 bo_color_id=97 boid=403960-97 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=403960-97
+FAIL | bl_part_id=3068pb1884 bo_color_id=64 boid=335067-64 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=335067-64
+FAIL | bl_part_id=16659pb02 bo_color_id=36 boid=763343-36 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=763343-36
+FAIL | bl_part_id=FTGpb351c01 bo_color_id=38 boid=1320857-38 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=1320857-38
+FAIL | bl_part_id=2431pb0909L bo_color_id=235 boid=56573-235 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=56573-235
+FAIL | bl_part_id=3626pb1936 bo_color_id=117 boid=867912-117 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=867912-117
+FAIL | bl_part_id=49527 bo_color_id=92 boid=567214-92 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=567214-92
+FAIL | bl_part_id=973pb5977c01 bo_color_id=56 boid=1418790-56 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=1418790-56
+FAIL | bl_part_id=3069pb0779 bo_color_id=92 boid=635576-92 | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=635576-92
+FAIL | bl_part_id=10121stk03 bo_color_id=None boid=no_bo_id | exception=HTTPError: 403 Client Error: Forbidden for url: https://api.brickowl.com/v1/catalog/lookup?key=70a9f2fe436f657241b6332ca02b87c55b2d644ca04c8bbbe6d98813dcb3c046&boid=no_bo_id
 summary_ok=0 summary_fail=10
